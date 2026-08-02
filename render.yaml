@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: arabic-course-bot
+    env: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: CLICK_SERVICE_ID
+        sync: false
+      - key: CLICK_MERCHANT_ID
+        sync: false
+      - key: CLICK_SECRET_KEY
+        sync: false
+      - key: CLICK_MERCHANT_USER_ID
+        sync: false
+      - key: PAYME_MERCHANT_ID
+        sync: false
+      - key: PAYME_SECRET_KEY
+        sync: false
+      - key: PAYME_TEST_MODE
+        value: "false"
+      - key: COURSE_PRICE
+        value: "150000"
+      - key: WEBHOOK_BASE_URL
+        sync: false
+      - key: PORT
+        value: "8080"
