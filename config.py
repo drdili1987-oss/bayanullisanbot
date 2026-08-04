@@ -22,8 +22,8 @@ COURSE_PRICE = int(os.environ.get("COURSE_PRICE", "150000"))
 WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_BASE_URL", "")
 
 # To'lov karta ma'lumotlari
-CARD_NUMBER = os.environ.get("CARD_NUMBER", "8600 0000 0000 0000")
-CARD_OWNER = os.environ.get("CARD_OWNER", "Karta egasi")
+CARD_NUMBER = os.environ.get("CARD_NUMBER", "9860260101019743")
+CARD_OWNER = os.environ.get("CARD_OWNER", "Dilmurod Rustamov")
 PORT = int(os.environ.get("PORT", "8080"))
 
 BRANCHES = [
