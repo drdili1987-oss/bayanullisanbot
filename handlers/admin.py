@@ -7,8 +7,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from services import firebase_service as fb
-from states.states import AdminBroadcast
+from states.states import AdminBroadcast, AdminReview
 from keyboards.reply import admin_menu_kb, main_menu_kb
+from keyboards.inline import admin_access_kb
 
 router = Router(name="admin")
 
@@ -53,19 +54,93 @@ async def admin_panel(message: Message, db_user: dict | None):
     await message.answer("Admin paneli:", reply_markup=admin_menu_kb())
 
 
-@router.callback_query(F.data == "admin:pending_hw")
-async def admin_pending_hw(callback: CallbackQuery, db_user: dict | None):
+@router.callback_query(F.data.startswith("grade_hw:"))
+async def admin_grade_hw_start(callback: CallbackQuery, state: FSMContext, db_user: dict | None):
     if not _require_admin(db_user):
         await callback.answer()
         return
 
-    pending = await fb.list_pending_homeworks()
-    if not pending:
-        await callback.message.answer("Kutilayotgan uy vazifalari yo'q.")
-    else:
-        lines = [f"• {hw['id']} — user {hw['user_id']} — lesson {hw['lesson_id']}" for hw in pending]
-        await callback.message.answer("\n".join(lines))
+    hw_id = callback.data.split(":", 1)[1]
+    hw = await fb.get_homework(hw_id)
+    if not hw:
+        await callback.answer("Topshiriq topilmadi!")
+        return
+
+    if hw.get("status") == "graded":
+        await callback.answer("Bu topshiriq allaqachon baholangan!", show_alert=True)
+        return
+
+    # Baholar klaviaturasi (1 dan 10 gacha)
+    builder = InlineKeyboardBuilder()
+    for i in range(1, 11):
+        builder.button(text=str(i), callback_data=f"grade_val:{hw_id}:{i}")
+    builder.adjust(5, 5)
+    
+    await callback.message.answer("Topshiriqqa necha baho qoyasiz (1-10)?", reply_markup=builder.as_markup())
     await callback.answer()
+
+@router.callback_query(F.data.startswith("grade_val:"))
+async def admin_grade_hw_val(callback: CallbackQuery, state: FSMContext, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+
+    _, hw_id, grade = callback.data.split(":")
+    
+    await state.update_data(grade_hw_id=hw_id, grade_val=grade)
+    from states.states import AdminReview
+    await state.set_state(AdminReview.waiting_feedback)
+    
+    await callback.message.edit_text(f"Baho: {grade}. Endi ushbu baho uchun izoh yozing:")
+    await callback.answer()
+
+@router.message(AdminReview.waiting_feedback, F.text | F.voice)
+async def admin_grade_hw_feedback(message: Message, state: FSMContext, db_user: dict | None):
+    if not _require_admin(db_user):
+        return
+
+    data = await state.get_data()
+    hw_id = data.get("grade_hw_id")
+    grade = data.get("grade_val")
+    
+    if message.voice:
+        feedback = "Ovozli xabar 🎧"
+        voice_id = message.voice.file_id
+    else:
+        feedback = message.text
+        voice_id = None
+    
+    hw = await fb.get_homework(hw_id)
+    if not hw:
+        await state.clear()
+        return
+        
+    await fb.update_homework(hw_id, {
+        "status": "graded",
+        "grade": grade,
+        "comment": feedback,
+        "voice_id": voice_id,
+        "graded_at": __import__('time').time()
+    })
+    
+    await state.clear()
+    await message.answer("✅ Baho va izoh saqlandi, talabaga yuborildi.")
+    
+    # Notify student
+    student_id = hw.get("user_id")
+    if student_id:
+        course_id = hw.get("course_id")
+        lesson_num = hw.get("lesson_num", "?")
+        course = await fb.get_course(course_id) if course_id else None
+        c_title = f"{course.get('course_number')}-kurs" if course else "topshirig'ingiz"
+        
+        student_msg = f"🔔 <b>{c_title}, {lesson_num}-dars</b> bo'yicha javobingiz tekshirildi!\n\n⭐️ <b>Baho:</b> {grade}/10\n💬 <b>Ustoz izohi:</b> {feedback}"
+        try:
+            await message.bot.send_message(student_id, student_msg, parse_mode="HTML")
+            if voice_id:
+                await message.bot.send_voice(student_id, voice_id)
+        except:
+            pass
 
 
 @router.callback_query(F.data == "admin:user_count")
@@ -140,3 +215,105 @@ async def admin_broadcast_send(callback: CallbackQuery, state: FSMContext, db_us
         await asyncio.sleep(0.05)
 
     await callback.message.answer(f"Broadcast yakunlandi. Yuborildi: {sent}, xato: {failed}")
+
+
+@router.callback_query(F.data.startswith("manage_access:"))
+async def admin_manage_access(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+    user_id = int(callback.data.split(":", 1)[1])
+    target_user = await fb.get_user(user_id)
+    if not target_user:
+        await callback.answer("Foydalanuvchi topilmadi", show_alert=True)
+        return
+    allowed_sections = target_user.get("allowed_sections", [])
+    await callback.message.edit_reply_markup(reply_markup=admin_access_kb(user_id, allowed_sections))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("toggle_access:"))
+async def admin_toggle_access(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+    _, user_id_str, cat = callback.data.split(":", 2)
+    user_id = int(user_id_str)
+    
+    target_user = await fb.get_user(user_id)
+    if not target_user:
+        await callback.answer("Foydalanuvchi topilmadi", show_alert=True)
+        return
+    
+    allowed_sections = target_user.get("allowed_sections", [])
+    if cat in allowed_sections:
+        allowed_sections.remove(cat)
+    else:
+        allowed_sections.append(cat)
+        
+    await fb.update_user(user_id, {"allowed_sections": allowed_sections})
+    
+    await callback.message.edit_reply_markup(reply_markup=admin_access_kb(user_id, allowed_sections))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("save_access:"))
+async def admin_save_access(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+    user_id = int(callback.data.split(":", 1)[1])
+    target_user = await fb.get_user(user_id)
+    if not target_user:
+        await callback.answer("Foydalanuvchi topilmadi", show_alert=True)
+        return
+        
+    allowed_sections = target_user.get("allowed_sections", [])
+    sections_text = "\n".join([f"✅ {s}" for s in allowed_sections]) if allowed_sections else "Hech qaysi bo'limga ruxsat berilmadi."
+    
+    msg = f"Sizga quyidagi bo'limlar bo'yicha uy vazifasini topshirishga ruxsat berildi:\n\n{sections_text}"
+    
+    try:
+        await callback.message.bot.send_message(user_id, msg)
+        await callback.answer("Foydalanuvchiga xabar yuborildi!", show_alert=True)
+        await callback.message.delete()
+    except Exception:
+        await callback.answer("Foydalanuvchiga xabar yuborishda xatolik!", show_alert=True)
+
+@router.callback_query(F.data.startswith("grant_course:"))
+async def admin_grant_course(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+        
+    _, target_user_id, course_id = callback.data.split(":", 2)
+    target_user_id = int(target_user_id)
+    
+    target_user = await fb.get_user(target_user_id)
+    if not target_user:
+        await callback.answer("Foydalanuvchi topilmadi", show_alert=True)
+        return
+        
+    course = await fb.get_course(course_id)
+    if not course:
+        await callback.answer("Kurs topilmadi", show_alert=True)
+        return
+        
+    allowed_courses = target_user.get("allowed_courses", [])
+    if course_id not in allowed_courses:
+        allowed_courses.append(course_id)
+        await fb.update_user(target_user_id, {"allowed_courses": allowed_courses})
+        
+    c_title = f"{course.get('course_number')}-kurs: {course.get('title')}"
+    
+    # Notify student
+    try:
+        lang = target_user.get("language", "uz")
+        msg = f"Sizga quyidagi kursga ruxsat berildi:\n\n📚 {c_title}" if lang == "uz" else f"Вам предоставлен доступ к курсу:\n\n📚 {c_title}"
+        await callback.message.bot.send_message(target_user_id, msg)
+    except Exception:
+        pass
+        
+    await callback.message.edit_text(f"{callback.message.text}\n\n✅ <b>Ruxsat berildi!</b>")
+    await callback.answer("Ruxsat berildi!", show_alert=True)
+

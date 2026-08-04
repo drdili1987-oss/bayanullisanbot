@@ -12,7 +12,104 @@ HOMEWORKS = "homeworks"
 QUIZZES = "quizzes"
 PAYMENTS = "payments"
 LESSONS = "lessons"
+COURSES = "courses"
+COURSE_LESSONS = "course_lessons"
 
+# ---------- Courses ----------
+
+def _create_course_sync(data: dict) -> str:
+    data.setdefault("created_at", time.time())
+    ref = db.collection(COURSES).document()
+    ref.set(data)
+    return ref.id
+
+async def create_course(data: dict) -> str:
+    return await _run(_create_course_sync, data)
+
+def _update_course_sync(course_id: str, data: dict) -> None:
+    db.collection(COURSES).document(course_id).set(data, merge=True)
+
+async def update_course(course_id: str, data: dict) -> None:
+    await _run(_update_course_sync, course_id, data)
+
+def _get_course_sync(course_id: str) -> Optional[dict]:
+    doc = db.collection(COURSES).document(course_id).get()
+    if not doc.exists:
+        return None
+    d = doc.to_dict()
+    d["id"] = doc.id
+    return d
+
+async def get_course(course_id: str) -> Optional[dict]:
+    return await _run(_get_course_sync, course_id)
+
+def _list_courses_sync(category: str = None) -> list[dict]:
+    query = db.collection(COURSES)
+    if category:
+        query = query.where(filter=FieldFilter("category", "==", category))
+    result = []
+    for doc in query.stream():
+        d = doc.to_dict()
+        d["id"] = doc.id
+        result.append(d)
+    
+    def get_sort_key(x):
+        try:
+            return int(x.get("course_number", 0))
+        except ValueError:
+            return 0
+            
+    result.sort(key=get_sort_key)
+    return result
+
+async def list_courses(category: str = None) -> list[dict]:
+    return await _run(_list_courses_sync, category)
+
+def _delete_course_sync(course_id: str) -> None:
+    db.collection(COURSES).document(course_id).delete()
+
+async def delete_course(course_id: str) -> None:
+    await _run(_delete_course_sync, course_id)
+
+# ---------- Course Lessons ----------
+
+def _get_course_lesson_sync(course_id: str, lesson_num: int) -> Optional[dict]:
+    query = db.collection(COURSE_LESSONS).where(filter=FieldFilter("course_id", "==", course_id)).where(filter=FieldFilter("lesson_number", "==", lesson_num)).limit(1)
+    docs = list(query.stream())
+    if not docs:
+        return None
+    d = docs[0].to_dict()
+    d["id"] = docs[0].id
+    return d
+
+async def get_course_lesson(course_id: str, lesson_num: int) -> Optional[dict]:
+    return await _run(_get_course_lesson_sync, course_id, lesson_num)
+
+def _update_course_lesson_sync(course_id: str, lesson_num: int, data: dict) -> None:
+    existing = _get_course_lesson_sync(course_id, lesson_num)
+    if existing:
+        db.collection(COURSE_LESSONS).document(existing["id"]).set(data, merge=True)
+    else:
+        data["course_id"] = course_id
+        data["lesson_number"] = lesson_num
+        data["created_at"] = time.time()
+        db.collection(COURSE_LESSONS).document().set(data)
+
+async def update_course_lesson(course_id: str, lesson_num: int, data: dict) -> None:
+    await _run(_update_course_lesson_sync, course_id, lesson_num, data)
+
+def _get_course_lessons_sync(course_id: str) -> list[dict]:
+    query = db.collection(COURSE_LESSONS).where(filter=FieldFilter("course_id", "==", course_id))
+    result = []
+    for doc in query.stream():
+        d = doc.to_dict()
+        d["id"] = doc.id
+        result.append(d)
+    result.sort(key=lambda x: int(x.get("lesson_number", 0)))
+    return result
+
+async def get_course_lessons(course_id: str) -> list[dict]:
+    return await _run(_get_course_lessons_sync, course_id)
 
 # ---------- Lessons (admin tomonidan qo'shilgan vazifalar) ----------
 
@@ -28,9 +125,12 @@ async def create_lesson(data: dict) -> str:
     return await _run(_create_lesson_sync, data)
 
 
-def _list_lessons_sync() -> list[dict]:
+def _list_lessons_sync(category: str = None) -> list[dict]:
     result = []
-    for doc in db.collection(LESSONS).stream():
+    query = db.collection(LESSONS)
+    if category:
+        query = query.where(filter=FieldFilter("category", "==", category))
+    for doc in query.stream():
         d = doc.to_dict()
         if d.get("active", True):
             d["id"] = doc.id
@@ -39,8 +139,8 @@ def _list_lessons_sync() -> list[dict]:
     return result
 
 
-async def list_lessons() -> list[dict]:
-    return await _run(_list_lessons_sync)
+async def list_lessons(category: str = None) -> list[dict]:
+    return await _run(_list_lessons_sync, category)
 
 
 def _delete_lesson_sync(lesson_id: str) -> None:
@@ -185,8 +285,37 @@ async def update_homework(hw_id: str, data: dict) -> None:
 
 # ---------- Quizzes ----------
 
-def _list_quizzes_by_level_sync(level: str) -> list[dict]:
+def _create_quiz_sync(data: dict) -> str:
+    data.setdefault("created_at", time.time())
+    ref = db.collection(QUIZZES).document()
+    ref.set(data)
+    return ref.id
+
+async def create_quiz(data: dict) -> str:
+    return await _run(_create_quiz_sync, data)
+
+def _list_quizzes_sync() -> list[dict]:
+    result = []
+    for doc in db.collection(QUIZZES).stream():
+        d = doc.to_dict()
+        d["id"] = doc.id
+        result.append(d)
+    result.sort(key=lambda x: x.get("created_at", 0))
+    return result
+
+async def list_quizzes() -> list[dict]:
+    return await _run(_list_quizzes_sync)
+
+def _delete_quiz_sync(quiz_id: str) -> None:
+    db.collection(QUIZZES).document(quiz_id).delete()
+
+async def delete_quiz(quiz_id: str) -> None:
+    await _run(_delete_quiz_sync, quiz_id)
+
+def _list_quizzes_by_level_sync(level: str, category: str = None) -> list[dict]:
     query = db.collection(QUIZZES).where(filter=FieldFilter("level", "==", level))
+    if category:
+        query = query.where(filter=FieldFilter("category", "==", category))
     result = []
     for doc in query.stream():
         d = doc.to_dict()
@@ -195,8 +324,8 @@ def _list_quizzes_by_level_sync(level: str) -> list[dict]:
     return result
 
 
-async def list_quizzes_by_level(level: str) -> list[dict]:
-    return await _run(_list_quizzes_by_level_sync, level)
+async def list_quizzes_by_level(level: str, category: str = None) -> list[dict]:
+    return await _run(_list_quizzes_by_level_sync, level, category)
 
 
 def _record_quiz_result_sync(telegram_id: int, level: str, score: int, total: int) -> None:

@@ -3,9 +3,11 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 
+from config import ADMIN_IDS
 from services import firebase_service as fb
 from states.states import Registration
 from keyboards.reply import language_kb, phone_kb, main_menu_kb, admin_menu_kb
+from keyboards.inline import admin_new_user_kb
 from utils.texts import t
 
 router = Router(name="registration")
@@ -56,8 +58,25 @@ async def enter_phone(message: Message, state: FSMContext):
             "full_name": data["full_name"],
             "phone_number": message.contact.phone_number,
             "language": lang,
+            "allowed_sections": [],
         },
     )
 
     await state.clear()
     await message.answer(t("registered", lang), reply_markup=main_menu_kb(lang))
+    
+    # Adminga xabar yuborish
+    admin_msg = f"🆕 Yangi talaba ro'yxatdan o'tdi!\n\n" \
+                f"👤 Ismi: {data['full_name']}\n" \
+                f"📞 Telfon: {message.contact.phone_number}\n" \
+                f"🆔 ID: {message.from_user.id}"
+    
+    for admin_id in ADMIN_IDS:
+        try:
+            await message.bot.send_message(
+                admin_id, 
+                admin_msg, 
+                reply_markup=admin_new_user_kb(message.from_user.id)
+            )
+        except Exception:
+            continue

@@ -27,7 +27,36 @@ class AdminBroadcast(StatesGroup):
     waiting_confirm = State()
 
 
-class AdminLesson(StatesGroup):
-    entering_title = State()       # Dars nomi
-    entering_description = State() # Vazifa matni
-    entering_media = State()       # Fayl/rasm (ixtiyoriy)
+class AdminCourse(StatesGroup):
+    choosing_category = State()
+    entering_number = State()
+    entering_title = State()
+    
+class AdminCourseEdit(StatesGroup):
+    waiting_course_number = State()
+    
+    # Qo'llanma
+    waiting_manual_text = State()
+    waiting_manual_media = State()
+    
+    # Video
+    waiting_lesson_num_for_video = State()
+    waiting_video_text = State()
+    waiting_video_media = State()
+    
+    # Topshiriq
+    waiting_lesson_num_for_assignment = State()
+    waiting_assignment_text = State()
+    waiting_assignment_media = State()
+    
+    # Dars ichidagi test
+    waiting_test_question = State()
+    waiting_test_options = State()
+    waiting_test_correct_answer = State()
+
+class AdminQuiz(StatesGroup):
+    choosing_category = State()
+    choosing_level = State()
+    entering_question = State()
+    entering_options = State()
+    entering_correct = State()

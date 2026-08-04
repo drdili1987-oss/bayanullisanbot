@@ -64,3 +64,37 @@ def broadcast_confirm_kb() -> InlineKeyboardMarkup:
     builder.button(text="❌ Bekor qilish", callback_data="broadcast:cancel")
     builder.adjust(2)
     return builder.as_markup()
+
+def admin_category_kb() -> InlineKeyboardMarkup:
+    categories = [
+        "Sarf", "Nahv",
+        "Balog'at - Maoniy", "Balog'at - Bayon", "Balog'at - Badiy",
+        "She'r - Barmoq", "She'r - Aruz", "She'r - Badiy san'atlar"
+    ]
+    builder = InlineKeyboardBuilder()
+    for cat in categories:
+        builder.button(text=cat, callback_data=f"cat:{cat}")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def admin_new_user_kb(user_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="⚙️ Ruxsatlarni boshqarish", callback_data=f"manage_access:{user_id}")
+    return builder.as_markup()
+
+
+def admin_access_kb(user_id: int, allowed_sections: list[str]) -> InlineKeyboardMarkup:
+    categories = [
+        "Sarf", "Nahv",
+        "Balog'at - Maoniy", "Balog'at - Bayon", "Balog'at - Badiy",
+        "She'r - Barmoq", "She'r - Aruz", "She'r - Badiy san'atlar"
+    ]
+    builder = InlineKeyboardBuilder()
+    for cat in categories:
+        mark = "✅" if cat in allowed_sections else "❌"
+        builder.button(text=f"{mark} {cat}", callback_data=f"toggle_access:{user_id}:{cat}")
+    
+    builder.adjust(2)
+    builder.row(InlineKeyboardButton(text="✅ Tasdiqlash va Xabar yuborish", callback_data=f"save_access:{user_id}"))
+    return builder.as_markup()
