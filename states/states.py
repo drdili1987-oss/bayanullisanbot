@@ -60,3 +60,7 @@ class AdminQuiz(StatesGroup):
     entering_question = State()
     entering_options = State()
     entering_correct = State()
+
+
+class PaymentFlow(StatesGroup):
+    waiting_screenshot = State()

@@ -20,6 +20,10 @@ PAYME_TEST_MODE = os.environ.get("PAYME_TEST_MODE", "true").lower() == "true"
 
 COURSE_PRICE = int(os.environ.get("COURSE_PRICE", "150000"))
 WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_BASE_URL", "")
+
+# To'lov karta ma'lumotlari
+CARD_NUMBER = os.environ.get("CARD_NUMBER", "8600 0000 0000 0000")
+CARD_OWNER = os.environ.get("CARD_OWNER", "Karta egasi")
 PORT = int(os.environ.get("PORT", "8080"))
 
 BRANCHES = [

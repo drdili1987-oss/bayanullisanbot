@@ -28,13 +28,13 @@ def main_menu_kb(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
         rows = [
             ["📖 Sarf bo'limi", "📖 Nahv bo'limi"],
             ["📖 Balog'at bo'limi", "📖 She'r san'ati bo'limi"],
-            ["💳 To'lov", "📍 Filiallar"],
+            ["💳 To'lov", "📢 Telegram kanal"],
         ]
     else:
         rows = [
             ["📖 Раздел Сарф", "📖 Раздел Нахв"],
             ["📖 Раздел Балага", "📖 Раздел Поэзия"],
-            ["💳 Оплата", "📍 Филиалы"],
+            ["💳 Оплата", "📢 Telegram канал"],
         ]
     keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)

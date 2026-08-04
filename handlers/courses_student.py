@@ -64,40 +64,43 @@ async def course_enter(callback: CallbackQuery, state: FSMContext, db_user: dict
     course_id = callback.data.split(":", 1)[1]
     lang = db_user.get("language", "uz")
     allowed_courses = db_user.get("allowed_courses", [])
-    
+
     course = await fb.get_course(course_id)
     if not course:
         await callback.answer("Kurs topilmadi.", show_alert=True)
         return
 
-    # Check permission
+    # Check permission - show payment panel if no access
     if course_id not in allowed_courses:
-        # Request access from admin
-        await callback.answer(
-            "Sizda ushbu kursga ruxsat yo'q. Adminga so'rov yuborildi." if lang == "uz"
-            else "У вас нет доступа к этому курсу. Запрос отправлен администратору.",
-            show_alert=True
+        course_num = course.get('course_number', '?')
+        cat_name = course.get('category', '')
+        course_title = course.get('title', '')
+
+        no_access_text = (
+            f"🔒 <b>Siz hali to'lov qilmagansiz!</b>\n\n"
+            f"📂 Bo'lim: {cat_name}\n"
+            f"📚 Kurs: {course_num}-kurs — {course_title}\n\n"
+            f"Ushbu kursga kirish uchun to'lov qilishingiz kerak."
+        ) if lang == "uz" else (
+            f"🔒 <b>Вы ещё не оплатили!</b>\n\n"
+            f"📂 Раздел: {cat_name}\n"
+            f"📚 Курс: {course_num}-курс — {course_title}\n\n"
+            f"Для доступа к этому курсу необходимо оплатить."
         )
-        
-        user_name = db_user.get("full_name", "Noma'lum")
-        course_name = f"{course.get('course_number')}-kurs: {course.get('title')}"
-        cat_name = course.get('category')
-        
-        # Admin notification
+
         builder = InlineKeyboardBuilder()
-        builder.button(text=f"✅ Ruxsat berish", callback_data=f"grant_course:{db_user['telegram_id']}:{course_id}")
-        
-        admin_msg = f"🔔 <b>Ruxsat so'rovi!</b>\n\n👤 Talaba: {user_name}\n📂 Bo'lim: {cat_name}\n📚 Kurs: {course_name}"
-        
-        for admin_id in ADMIN_IDS:
-            try:
-                await callback.message.bot.send_message(
-                    chat_id=admin_id,
-                    text=admin_msg,
-                    reply_markup=builder.as_markup()
-                )
-            except Exception:
-                pass
+        builder.button(
+            text="💳 To'lov qilish" if lang == "uz" else "💳 Оплатить",
+            callback_data=f"pay_course_show:{course_id}"
+        )
+        builder.button(
+            text="✅ To'lov qildim" if lang == "uz" else "✅ Я оплатил",
+            callback_data=f"pay_course_done:{course_id}"
+        )
+        builder.adjust(1)
+
+        await callback.message.edit_text(no_access_text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback.answer()
         return
 
     # User has access, show course menu
@@ -105,11 +108,11 @@ async def course_enter(callback: CallbackQuery, state: FSMContext, db_user: dict
     builder.button(text="📖 Qo'llanma", callback_data=f"course_manual:{course_id}")
     builder.button(text="📚 Darslar", callback_data=f"course_lessons:{course_id}")
     builder.adjust(1)
-    
+
     title = f"{course.get('course_number')}-kurs: {course.get('title')}"
     msg = f"📚 <b>{title}</b>\n\nQuyidagilardan birini tanlang:" if lang == "uz" else f"📚 <b>{title}</b>\n\nВыберите один из вариантов:"
-    
-    await callback.message.edit_text(msg, reply_markup=builder.as_markup())
+
+    await callback.message.edit_text(msg, reply_markup=builder.as_markup(), parse_mode="HTML")
 
 
 async def _send_media(bot, chat_id, media_type, media_url, text, protect_content=False):

@@ -285,35 +285,97 @@ async def admin_grant_course(callback: CallbackQuery, db_user: dict | None):
     if not _require_admin(db_user):
         await callback.answer()
         return
-        
-    _, target_user_id, course_id = callback.data.split(":", 2)
-    target_user_id = int(target_user_id)
-    
+
+    parts = callback.data.split(":", 2)
+    target_user_id = int(parts[1])
+    course_id = parts[2]
+
     target_user = await fb.get_user(target_user_id)
     if not target_user:
         await callback.answer("Foydalanuvchi topilmadi", show_alert=True)
         return
-        
+
     course = await fb.get_course(course_id)
     if not course:
         await callback.answer("Kurs topilmadi", show_alert=True)
         return
-        
+
     allowed_courses = target_user.get("allowed_courses", [])
     if course_id not in allowed_courses:
         allowed_courses.append(course_id)
         await fb.update_user(target_user_id, {"allowed_courses": allowed_courses})
-        
+
     c_title = f"{course.get('course_number')}-kurs: {course.get('title')}"
-    
-    # Notify student
+    cat_name = course.get("category", "")
+
+    # Notify student - kurs ochildi
     try:
         lang = target_user.get("language", "uz")
-        msg = f"Sizga quyidagi kursga ruxsat berildi:\n\n📚 {c_title}" if lang == "uz" else f"Вам предоставлен доступ к курсу:\n\n📚 {c_title}"
-        await callback.message.bot.send_message(target_user_id, msg)
+        msg = (
+            f"🎉 <b>Tabriklaymiz!</b>\n\n"
+            f"To'lovingiz tasdiqlandi va kurs ochildi!\n\n"
+            f"📂 Bo'lim: {cat_name}\n"
+            f"📚 Kurs: {c_title}\n\n"
+            f"Endi kursga kirishingiz mumkin. 🚀"
+        ) if lang == "uz" else (
+            f"🎉 <b>Поздравляем!</b>\n\n"
+            f"Ваш платёж подтверждён и курс открыт!\n\n"
+            f"📂 Раздел: {cat_name}\n"
+            f"📚 Курс: {c_title}\n\n"
+            f"Теперь вы можете войти в курс. 🚀"
+        )
+        await callback.message.bot.send_message(target_user_id, msg, parse_mode="HTML")
     except Exception:
         pass
-        
-    await callback.message.edit_text(f"{callback.message.text}\n\n✅ <b>Ruxsat berildi!</b>")
-    await callback.answer("Ruxsat berildi!", show_alert=True)
+
+    await callback.message.edit_caption(
+        caption=f"{callback.message.caption or ''}\n\n✅ <b>Ruxsat berildi va kurs ochildi!</b>",
+        parse_mode="HTML",
+        reply_markup=None
+    )
+    await callback.answer("✅ Ruxsat berildi!", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("reject_payment:"))
+async def admin_reject_payment(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+
+    parts = callback.data.split(":", 2)
+    target_user_id = int(parts[1])
+    course_id = parts[2]
+
+    target_user = await fb.get_user(target_user_id)
+    course = await fb.get_course(course_id)
+
+    c_title = f"{course.get('course_number')}-kurs: {course.get('title')}" if course else course_id
+    cat_name = course.get("category", "") if course else ""
+
+    # Notify student - rad etildi
+    try:
+        lang = target_user.get("language", "uz") if target_user else "uz"
+        msg = (
+            f"❌ <b>To'lov tasdiqlanmadi</b>\n\n"
+            f"📂 Bo'lim: {cat_name}\n"
+            f"📚 Kurs: {c_title}\n\n"
+            f"To'lovingiz admin tomonidan rad etildi.\n"
+            f"Iltimos, qayta urinib ko'ring yoki admin bilan bog'laning."
+        ) if lang == "uz" else (
+            f"❌ <b>Платёж не подтверждён</b>\n\n"
+            f"📂 Раздел: {cat_name}\n"
+            f"📚 Курс: {c_title}\n\n"
+            f"Ваш платёж отклонён администратором.\n"
+            f"Пожалуйста, повторите попытку или обратитесь к администратору."
+        )
+        await callback.message.bot.send_message(target_user_id, msg, parse_mode="HTML")
+    except Exception:
+        pass
+
+    await callback.message.edit_caption(
+        caption=f"{callback.message.caption or ''}\n\n❌ <b>Rad etildi!</b>",
+        parse_mode="HTML",
+        reply_markup=None
+    )
+    await callback.answer("❌ Rad etildi!", show_alert=True)
 

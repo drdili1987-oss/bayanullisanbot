@@ -1,38 +1,31 @@
 from aiogram import Router, F
-from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup
-
-from config import BRANCHES
-from services.geo_service import sort_branches_by_distance
-from utils.texts import t
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 router = Router(name="branches")
 
+TELEGRAM_CHANNEL_URL = "https://t.me/Bayanul_lisan"
 
-def _location_request_kb(lang: str) -> ReplyKeyboardMarkup:
-    text = "📍 Joylashuvni yuborish" if lang == "uz" else "📍 Отправить геолокацию"
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=text, request_location=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=True,
+
+def telegram_channel_kb(lang: str) -> InlineKeyboardMarkup:
+    text = "📢 Telegram kanalga o'tish" if lang == "uz" else "📢 Перейти в Telegram канал"
+    builder = InlineKeyboardBuilder()
+    builder.button(text=text, url=TELEGRAM_CHANNEL_URL)
+    return builder.as_markup()
+
+
+@router.message(F.text.in_(["📢 Telegram kanal", "📢 Telegram канал"]))
+async def show_telegram_channel(message: Message, db_user: dict | None):
+    lang = db_user["language"] if db_user else "uz"
+
+    msg = (
+        "📢 <b>Bayanul Lisan rasmiy Telegram kanali</b>\n\n"
+        "Kanalimizda eng so'nggi yangiliklar, darslar va foydali materiallar joylashtiriladi.\n\n"
+        "👇 Quyidagi tugmani bosib kanalga qo'shiling:"
+    ) if lang == "uz" else (
+        "📢 <b>Официальный Telegram канал Bayanul Lisan</b>\n\n"
+        "На нашем канале публикуются последние новости, уроки и полезные материалы.\n\n"
+        "👇 Нажмите кнопку ниже, чтобы присоединиться к каналу:"
     )
 
-
-@router.message(F.text.in_(["📍 Filiallar", "📍 Филиалы"]))
-async def show_branches(message: Message, db_user: dict | None):
-    lang = db_user["language"] if db_user else "uz"
-    lines = [t("branches", lang)]
-    for b in BRANCHES:
-        lines.append(f"• {b['name']}: https://maps.google.com/?q={b['lat']},{b['lon']}")
-    await message.answer("\n".join(lines), reply_markup=_location_request_kb(lang))
-
-
-@router.message(F.location)
-async def branches_by_distance(message: Message, db_user: dict | None):
-    lang = db_user["language"] if db_user else "uz"
-    sorted_branches = sort_branches_by_distance(
-        BRANCHES, message.location.latitude, message.location.longitude
-    )
-    lines = [t("branches", lang)]
-    for b in sorted_branches:
-        lines.append(f"• {b['name']} — {b['distance_km']} km")
-    await message.answer("\n".join(lines))
+    await message.answer(msg, reply_markup=telegram_channel_kb(lang), parse_mode="HTML")

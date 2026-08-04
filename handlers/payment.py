@@ -1,55 +1,183 @@
+import time
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
+from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from config import COURSE_PRICE
+from config import CARD_NUMBER, CARD_OWNER, COURSE_PRICE, ADMIN_IDS
 from services import firebase_service as fb
-from services.payment_service import generate_click_link, generate_payme_link
-from keyboards.inline import payment_provider_kb
+from states.states import PaymentFlow
 from utils.texts import t
 
 router = Router(name="payment")
 
 
-@router.message(F.text.in_(["💳 To'lov", "💳 Оплата"]))
-async def start_payment(message: Message, db_user: dict | None):
+@router.callback_query(F.data.startswith("pay_course_show:"))
+async def pay_course_show_card(callback: CallbackQuery, db_user: dict | None):
+    """Karta raqami va egasini ko'rsatish"""
     if not db_user:
-        await message.answer(t("not_registered", "uz"))
+        await callback.answer(t("not_registered", "uz"), show_alert=True)
         return
 
-    lang = db_user["language"]
-    if db_user.get("has_access"):
-        await message.answer(t("payment_success", lang))
-        return
+    course_id = callback.data.split(":", 1)[1]
+    lang = db_user.get("language", "uz")
 
-    await message.answer(
-        t("pay_course", lang, price=COURSE_PRICE),
-        reply_markup=payment_provider_kb(),
+    course = await fb.get_course(course_id)
+    course_num = course.get("course_number", "?") if course else "?"
+    course_title = course.get("title", "") if course else ""
+    cat_name = course.get("category", "") if course else ""
+
+    card_text = (
+        f"💳 <b>To'lov ma'lumotlari</b>\n\n"
+        f"📚 Kurs: {course_num}-kurs — {course_title}\n"
+        f"💰 Narxi: <b>{COURSE_PRICE:,} so'm</b>\n\n"
+        f"━━━━━━━━━━━━━━━━━\n"
+        f"🏦 Karta raqami:\n"
+        f"<code>{CARD_NUMBER}</code>\n\n"
+        f"👤 Karta egasi:\n"
+        f"<b>{CARD_OWNER}</b>\n"
+        f"━━━━━━━━━━━━━━━━━\n\n"
+        f"⚠️ To'lovni amalga oshirgach, <b>«✅ To'lov qildim»</b> tugmasini bosing."
+    ) if lang == "uz" else (
+        f"💳 <b>Данные для оплаты</b>\n\n"
+        f"📚 Курс: {course_num}-курс — {course_title}\n"
+        f"💰 Стоимость: <b>{COURSE_PRICE:,} сум</b>\n\n"
+        f"━━━━━━━━━━━━━━━━━\n"
+        f"🏦 Номер карты:\n"
+        f"<code>{CARD_NUMBER}</code>\n\n"
+        f"👤 Владелец карты:\n"
+        f"<b>{CARD_OWNER}</b>\n"
+        f"━━━━━━━━━━━━━━━━━\n\n"
+        f"⚠️ После оплаты нажмите кнопку <b>«✅ Я оплатил»</b>."
     )
-
-
-@router.callback_query(F.data.startswith("pay:"))
-async def choose_provider(callback: CallbackQuery, db_user: dict):
-    provider = callback.data.split(":", 1)[1]
-
-    payment_id = await fb.create_payment(
-        {
-            "user_id": callback.from_user.id,
-            "amount": COURSE_PRICE,
-            "provider": provider,
-        }
-    )
-
-    if provider == "click":
-        link = generate_click_link(payment_id, COURSE_PRICE)
-    else:
-        link = generate_payme_link(payment_id, COURSE_PRICE)
 
     builder = InlineKeyboardBuilder()
-    builder.button(text="💳 To'lash", url=link)
-
-    await callback.message.answer(
-        f"To'lov havolasi tayyor (ID: {payment_id}):",
-        reply_markup=builder.as_markup(),
+    builder.button(
+        text="✅ To'lov qildim" if lang == "uz" else "✅ Я оплатил",
+        callback_data=f"pay_course_done:{course_id}"
     )
+    builder.button(
+        text="🔙 Orqaga" if lang == "uz" else "🔙 Назад",
+        callback_data=f"course_enter:{course_id}"
+    )
+    builder.adjust(1)
+
+    await callback.message.edit_text(card_text, reply_markup=builder.as_markup(), parse_mode="HTML")
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pay_course_done:"))
+async def pay_course_done(callback: CallbackQuery, state: FSMContext, db_user: dict | None):
+    """Talaba to'lov qildim tugmasini bosdi - screenshot so'rash"""
+    if not db_user:
+        await callback.answer(t("not_registered", "uz"), show_alert=True)
+        return
+
+    course_id = callback.data.split(":", 1)[1]
+    lang = db_user.get("language", "uz")
+
+    await state.update_data(paying_course_id=course_id)
+    await state.set_state(PaymentFlow.waiting_screenshot)
+
+    screenshot_msg = (
+        "📸 <b>Screenshot yuborish</b>\n\n"
+        "To'lov amalga oshirilganligini tasdiqlash uchun\n"
+        "to'lov screenshotini shu yerga yuboring.\n\n"
+        "Admin ko'rib chiqgach, kurs ochiladi. ⏳"
+    ) if lang == "uz" else (
+        "📸 <b>Отправьте скриншот</b>\n\n"
+        "Для подтверждения оплаты отправьте\n"
+        "скриншот чека в этот чат.\n\n"
+        "После проверки администратором курс будет открыт. ⏳"
+    )
+
+    await callback.message.answer(screenshot_msg, parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(PaymentFlow.waiting_screenshot, F.photo)
+async def receive_payment_screenshot(message: Message, state: FSMContext, db_user: dict | None):
+    """Screenshot qabul qilish va adminga yuborish"""
+    if not db_user:
+        return
+
+    data = await state.get_data()
+    course_id = data.get("paying_course_id")
+    lang = db_user.get("language", "uz")
+
+    if not course_id:
+        await message.answer("Xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.")
+        await state.clear()
+        return
+
+    await state.clear()
+
+    course = await fb.get_course(course_id)
+    course_num = course.get("course_number", "?") if course else "?"
+    course_title = course.get("title", "") if course else ""
+    cat_name = course.get("category", "") if course else ""
+
+    user_name = db_user.get("full_name", message.from_user.full_name)
+    user_id = message.from_user.id
+
+    # Talabaga tasdiqlash xabari
+    confirm_msg = (
+        "✅ <b>Screenshot qabul qilindi!</b>\n\n"
+        "Admin to'lovingizni tekshirib, ruxsat beradi.\n"
+        "Biroz kuting... ⏳"
+    ) if lang == "uz" else (
+        "✅ <b>Скриншот получен!</b>\n\n"
+        "Администратор проверит оплату и откроет доступ.\n"
+        "Подождите немного... ⏳"
+    )
+    await message.answer(confirm_msg, parse_mode="HTML")
+
+    # Adminlarga xabar yuborish
+    screenshot_file_id = message.photo[-1].file_id
+
+    admin_msg = (
+        f"💰 <b>To'lov so'rovi!</b>\n\n"
+        f"👤 Talaba: {user_name}\n"
+        f"🆔 Telegram ID: {user_id}\n"
+        f"📂 Bo'lim: {cat_name}\n"
+        f"📚 Kurs: {course_num}-kurs — {course_title}\n\n"
+        f"📸 To'lov screenshoti yuborildi."
+    )
+
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="✅ Ruxsat berish va Kursni ochish",
+        callback_data=f"grant_course:{user_id}:{course_id}"
+    )
+    builder.button(
+        text="❌ Rad etish",
+        callback_data=f"reject_payment:{user_id}:{course_id}"
+    )
+    builder.adjust(1)
+
+    for admin_id in ADMIN_IDS:
+        try:
+            await message.bot.send_photo(
+                chat_id=admin_id,
+                photo=screenshot_file_id,
+                caption=admin_msg,
+                reply_markup=builder.as_markup(),
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+
+@router.message(PaymentFlow.waiting_screenshot)
+async def receive_payment_screenshot_wrong(message: Message, db_user: dict | None):
+    """Noto'g'ri format - faqat rasm kutilmoqda"""
+    lang = db_user.get("language", "uz") if db_user else "uz"
+    msg = (
+        "⚠️ Iltimos, faqat <b>rasm (screenshot)</b> yuboring.\n"
+        "To'lov screenshotini rasm ko'rinishida yuboring."
+    ) if lang == "uz" else (
+        "⚠️ Пожалуйста, отправьте только <b>изображение (скриншот)</b>.\n"
+        "Скриншот оплаты должен быть в виде фото."
+    )
+    await message.answer(msg, parse_mode="HTML")
