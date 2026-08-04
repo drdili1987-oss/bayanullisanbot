@@ -35,7 +35,57 @@ async def admin_users_list(message: Message, db_user: dict | None):
     if not _require_admin(db_user):
         return
     users = await fb.list_users()
-    await message.answer(f"Jami foydalanuvchilar: {len(users)} ta")
+    students = [u for u in users if u.get("role") != "admin"]
+
+    if not students:
+        await message.answer("Hali hech qanday talaba yo'q.")
+        return
+
+    lines = [f"👥 <b>Jami talabalar: {len(students)} ta</b>\n"]
+    for i, u in enumerate(students, 1):
+        name = u.get("full_name") or u.get("name") or u.get("first_name") or "Nomsiz"
+        username = u.get("username", "")
+        uname_str = f" (@{username})" if username else ""
+        phone = u.get("phone", "") or u.get("phone_number", "")
+        phone_str = f" | 📞 {phone}" if phone else ""
+        lines.append(f"{i}. 👤 <b>{name}</b>{uname_str}{phone_str}")
+
+    text = "\n".join(lines)
+    # Telegram 4096 belgi cheklov — bo'lib yuboramiz
+    for start in range(0, len(text), 4000):
+        await message.answer(text[start:start+4000], parse_mode="HTML")
+
+
+@router.message(F.text == "🏆 Reyting")
+async def admin_leaderboard(message: Message, db_user: dict | None):
+    if not _require_admin(db_user):
+        return
+
+    leaderboard = await fb.get_leaderboard()
+
+    if not leaderboard:
+        await message.answer("Hali hech qanday ball yo'q.")
+        return
+
+    medals = ["🥇", "🥈", "🥉"]
+    lines = ["🏆 <b>Talabalar reytingi</b>\n"]
+    for i, s in enumerate(leaderboard, 1):
+        medal = medals[i - 1] if i <= 3 else f"{i}."
+        name = s['name']
+        total = s['total_score']
+        hw = s['hw_score']
+        hw_c = s['hw_count']
+        qz = s['quiz_score']
+        qz_q = s['quiz_questions']
+        lines.append(
+            f"{medal} <b>{name}</b> — <b>{total} ball</b>\n"
+            f"   📝 Uy vazifasi: {hw} ball ({hw_c} ta)\n"
+            f"   📊 Test: {qz}/{qz_q}"
+        )
+
+    text = "\n\n".join(lines)
+    for start in range(0, len(text), 4000):
+        await message.answer(text[start:start+4000], parse_mode="HTML")
 
 
 @router.message(F.text == "📢 Broadcast")

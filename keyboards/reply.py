@@ -68,11 +68,13 @@ def admin_menu_kb() -> ReplyKeyboardMarkup:
     """Admin uchun alohida menyu."""
     rows = [
         ["📚 Kurslar", "👥 Foydalanuvchilar"],
-        ["📝 Testlar", "📢 Broadcast"], 
-        ["⚙️ Sozlamalar", "👨‍🎓 Talaba rejimi"],
+        ["📝 Testlar", "📢 Broadcast"],
+        ["🏆 Reyting", "⚙️ Sozlamalar"],
+        ["👨‍🎓 Talaba rejimi"],
     ]
     keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
 
 
 def remove_kb() -> ReplyKeyboardRemove:

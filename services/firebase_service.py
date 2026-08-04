@@ -370,3 +370,103 @@ def _update_payment_sync(payment_id: str, data: dict) -> None:
 
 async def update_payment(payment_id: str, data: dict) -> None:
     await _run(_update_payment_sync, payment_id, data)
+
+
+# ---------- Scores & Leaderboard ----------
+
+def _get_student_scores_sync(telegram_id: int) -> dict:
+    """Bir talabaning barcha balllarini hisoblaydi."""
+    uid = str(telegram_id)
+
+    # Uy vazifalari ballari (graded homeworks)
+    hw_score = 0
+    hw_count = 0
+    for doc in db.collection(HOMEWORKS).stream():
+        d = doc.to_dict()
+        if str(d.get("user_id")) == uid and d.get("status") == "graded":
+            try:
+                hw_score += int(d.get("grade", 0))
+                hw_count += 1
+            except (ValueError, TypeError):
+                pass
+
+    # Quiz ballari
+    user_doc = db.collection(USERS).document(uid).get()
+    quiz_score = 0
+    quiz_count = 0
+    if user_doc.exists:
+        user_data = user_doc.to_dict()
+        quiz_stats = user_data.get("quiz_stats", {})
+        for level, stats in quiz_stats.items():
+            quiz_score += stats.get("score", 0)
+            quiz_count += stats.get("total", 0)
+
+    return {
+        "hw_score": hw_score,
+        "hw_count": hw_count,
+        "quiz_score": quiz_score,
+        "quiz_questions": quiz_count,
+        "total_score": hw_score + quiz_score,
+    }
+
+
+async def get_student_scores(telegram_id: int) -> dict:
+    return await _run(_get_student_scores_sync, telegram_id)
+
+
+def _get_leaderboard_sync() -> list[dict]:
+    """Barcha talabalar reytingini hisoblaydi."""
+    # Barcha uy vazifalari graded
+    hw_by_user: dict[str, int] = {}
+    hw_count_by_user: dict[str, int] = {}
+    for doc in db.collection(HOMEWORKS).stream():
+        d = doc.to_dict()
+        if d.get("status") == "graded":
+            uid = str(d.get("user_id", ""))
+            if uid:
+                try:
+                    hw_by_user[uid] = hw_by_user.get(uid, 0) + int(d.get("grade", 0))
+                    hw_count_by_user[uid] = hw_count_by_user.get(uid, 0) + 1
+                except (ValueError, TypeError):
+                    pass
+
+    # Barcha foydalanuvchilar
+    leaderboard = []
+    for doc in db.collection(USERS).stream():
+        d = doc.to_dict()
+        uid = str(d.get("telegram_id", doc.id))
+        role = d.get("role", "student")
+        if role == "admin":
+            continue
+
+        name = d.get("full_name") or d.get("name") or d.get("first_name") or "Nomsiz"
+        username = d.get("username", "")
+
+        hw_score = hw_by_user.get(uid, 0)
+        hw_count = hw_count_by_user.get(uid, 0)
+
+        quiz_score = 0
+        quiz_questions = 0
+        quiz_stats = d.get("quiz_stats", {})
+        for level, stats in quiz_stats.items():
+            quiz_score += stats.get("score", 0)
+            quiz_questions += stats.get("total", 0)
+
+        total = hw_score + quiz_score
+        leaderboard.append({
+            "telegram_id": uid,
+            "name": name,
+            "username": username,
+            "hw_score": hw_score,
+            "hw_count": hw_count,
+            "quiz_score": quiz_score,
+            "quiz_questions": quiz_questions,
+            "total_score": total,
+        })
+
+    leaderboard.sort(key=lambda x: x["total_score"], reverse=True)
+    return leaderboard
+
+
+async def get_leaderboard() -> list[dict]:
+    return await _run(_get_leaderboard_sync)
