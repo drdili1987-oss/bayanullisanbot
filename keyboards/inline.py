@@ -69,7 +69,7 @@ def admin_category_kb() -> InlineKeyboardMarkup:
     categories = [
         "Sarf", "Nahv",
         "Balog'at - Maoniy", "Balog'at - Bayon", "Balog'at - Badiy",
-        "She'r - Barmoq", "She'r - Aruz", "She'r - Badiy san'atlar"
+        "She'r san'ati"
     ]
     builder = InlineKeyboardBuilder()
     for cat in categories:
@@ -88,7 +88,7 @@ def admin_access_kb(user_id: int, allowed_sections: list[str]) -> InlineKeyboard
     categories = [
         "Sarf", "Nahv",
         "Balog'at - Maoniy", "Balog'at - Bayon", "Balog'at - Badiy",
-        "She'r - Barmoq", "She'r - Aruz", "She'r - Badiy san'atlar"
+        "She'r san'ati"
     ]
     builder = InlineKeyboardBuilder()
     for cat in categories:
@@ -97,4 +97,22 @@ def admin_access_kb(user_id: int, allowed_sections: list[str]) -> InlineKeyboard
     
     builder.adjust(2)
     builder.row(InlineKeyboardButton(text="✅ Tasdiqlash va Xabar yuborish", callback_data=f"save_access:{user_id}"))
+    return builder.as_markup()
+
+
+def student_manage_kb(user_id: int) -> InlineKeyboardMarkup:
+    """Talabani boshqarish tugmalari."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="⚙️ Ruxsatlarni boshqarish", callback_data=f"manage_access:{user_id}")
+    builder.button(text="🗑 Talabani o'chirish", callback_data=f"student_delete_ask:{user_id}")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def student_delete_confirm_kb(user_id: int) -> InlineKeyboardMarkup:
+    """O'chirishni tasdiqlash."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Ha, o'chirish", callback_data=f"student_delete_confirm:{user_id}")
+    builder.button(text="❌ Yo'q, bekor", callback_data=f"student_delete_cancel:{user_id}")
+    builder.adjust(2)
     return builder.as_markup()

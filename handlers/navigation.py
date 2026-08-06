@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 
 from keyboards.reply import (
     main_menu_kb,
+    admin_menu_kb,
     balogat_menu_kb,
     sher_sanati_menu_kb,
     section_action_kb
@@ -65,3 +66,18 @@ async def back_to_main_menu(message: Message, state: FSMContext, db_user: dict |
     lang = db_user.get("language", "uz") if db_user else "uz"
     await state.update_data(current_section=None)
     await message.answer("Asosiy menyu" if lang == "uz" else "Главное меню", reply_markup=main_menu_kb(lang))
+
+
+@router.message(F.text.in_(["🏠 Bosh menu", "🏠 Главное меню"]))
+async def go_to_home_menu(message: Message, state: FSMContext, db_user: dict | None):
+    """Talaba yoki admin istalgan bo'limdan asosiy menyuga qaytadi."""
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.clear()
+    if db_user and db_user.get("role") == "admin":
+        await message.answer("👨‍🏫 Assalomu Alaykum Ustoz!", reply_markup=admin_menu_kb())
+    else:
+        lang = db_user.get("language", "uz") if db_user else "uz"
+        name = db_user.get("full_name", "") if db_user else ""
+        greeting = f"👨‍🎓 Assalomu Alaykum, {name}!" if lang == "uz" else f"👨‍🎓 Ассалому Алайкум, {name}!"
+        await message.answer(greeting, reply_markup=main_menu_kb(lang))

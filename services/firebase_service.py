@@ -212,6 +212,13 @@ async def is_admin(telegram_id: int) -> bool:
     return bool(user and user.get("role") == "admin")
 
 
+def _delete_user_sync(telegram_id: int) -> None:
+    db.collection(USERS).document(str(telegram_id)).delete()
+
+async def delete_user(telegram_id: int) -> None:
+    await _run(_delete_user_sync, telegram_id)
+
+
 # ---------- Storage ----------
 
 def _upload_file_sync(local_path: str, dest_path: str) -> str:

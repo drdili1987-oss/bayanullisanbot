@@ -41,25 +41,25 @@ def main_menu_kb(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
 
 def balogat_menu_kb(lang: str) -> ReplyKeyboardMarkup:
     if lang == "uz":
-        rows = [["Maoniy bo'limi", "Bayon bo'limi"], ["Badiy bo'limi"], ["🔙 Orqaga"]]
+        rows = [["Maoniy bo'limi", "Bayon bo'limi"], ["Badiy bo'limi"], ["🔙 Orqaga"], ["🏠 Bosh menu"]]
     else:
-        rows = [["Раздел Маани", "Раздел Баян"], ["Раздел Бади'"], ["🔙 Назад"]]
+        rows = [["Раздел Маани", "Раздел Баян"], ["Раздел Бади'"], ["🔙 Назад"], ["🏠 Главное меню"]]
     keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 def sher_sanati_menu_kb(lang: str) -> ReplyKeyboardMarkup:
     if lang == "uz":
-        rows = [["Barmoq vazni", "Aruz"], ["Badiy san'atlar"], ["🔙 Orqaga"]]
+        rows = [["Barmoq vazni", "Aruz"], ["Badiy san'atlar"], ["🔙 Orqaga"], ["🏠 Bosh menu"]]
     else:
-        rows = [["Размер Бармак", "Аруз"], ["Поэтические искусства"], ["🔙 Назад"]]
+        rows = [["Размер Бармак", "Аруз"], ["Поэтические искусства"], ["🔙 Назад"], ["🏠 Главное меню"]]
     keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 def section_action_kb(lang: str) -> ReplyKeyboardMarkup:
     if lang == "uz":
-        rows = [["📚 Kurslar"], ["🔙 Orqaga"]]
+        rows = [["📚 Kurslar"], ["🔙 Orqaga"], ["🏠 Bosh menu"]]
     else:
-        rows = [["📚 Курсы"], ["🔙 Назад"]]
+        rows = [["📚 Курсы"], ["🔙 Назад"], ["🏠 Главное меню"]]
     keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -69,8 +69,9 @@ def admin_menu_kb() -> ReplyKeyboardMarkup:
     rows = [
         ["📚 Kurslar", "👥 Foydalanuvchilar"],
         ["📝 Testlar", "📢 Broadcast"],
-        ["🏆 Reyting", "⚙️ Sozlamalar"],
+        ["🏆 Reyting"],
         ["👨‍🎓 Talaba rejimi"],
+        ["🏠 Bosh menu"],
     ]
     keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)

@@ -21,9 +21,11 @@ async def cmd_start(message: Message, state: FSMContext, db_user: dict | None):
         lang = db_user.get("language", "uz")
         is_admin = db_user.get("role") == "admin"
         if is_admin:
-            await message.answer("Admin paneliga xush kelibsiz!", reply_markup=admin_menu_kb())
+            await message.answer("👨‍🏫 Assalomu Alaykum Ustoz!", reply_markup=admin_menu_kb())
         else:
-            await message.answer(t("main_menu", lang), reply_markup=main_menu_kb(lang))
+            name = db_user.get("full_name", "")
+            greeting = f"👨‍🎓 Assalomu Alaykum, {name}!" if lang == "uz" else f"👨‍🎓 Ассалому Алайкум, {name}!"
+            await message.answer(greeting, reply_markup=main_menu_kb(lang))
         return
 
     await state.set_state(Registration.choosing_language)

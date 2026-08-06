@@ -9,7 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services import firebase_service as fb
 from states.states import AdminBroadcast, AdminReview
 from keyboards.reply import admin_menu_kb, main_menu_kb
-from keyboards.inline import admin_access_kb
+from keyboards.inline import admin_access_kb, student_manage_kb, student_delete_confirm_kb
 
 router = Router(name="admin")
 
@@ -19,12 +19,29 @@ def _require_admin(db_user: dict | None) -> bool:
 
 
 @router.message(F.text == "👨‍🎓 Talaba rejimi")
-async def switch_to_student(message: Message, db_user: dict | None):
+async def switch_to_student(message: Message, state: FSMContext, db_user: dict | None):
     """Admin talaba rejimiga o'tadi."""
     if not _require_admin(db_user):
         return
+    await state.clear()
     lang = db_user.get("language", "uz") if db_user else "uz"
     await message.answer("Talaba rejimi. Qaytish uchun /start bosing.", reply_markup=main_menu_kb(lang))
+
+
+@router.message(F.text == "⚙️ Sozlamalar")
+async def admin_settings(message: Message, state: FSMContext, db_user: dict | None):
+    """Admin sozlamalari."""
+    if not _require_admin(db_user):
+        return
+    # Agar oldingi biror jarayon (kurs yaratish va h.k) qolib ketgan bo'lsa — tozalaymiz
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.clear()
+    await message.answer(
+        "⚙️ <b>Sozlamalar</b>\n\nHozircha sozlamalar bo'limi ishlab chiqilmoqda.",
+        parse_mode="HTML",
+        reply_markup=admin_menu_kb()
+    )
 
 
 
@@ -38,22 +55,81 @@ async def admin_users_list(message: Message, db_user: dict | None):
     students = [u for u in users if u.get("role") != "admin"]
 
     if not students:
-        await message.answer("Hali hech qanday talaba yo'q.")
+        await message.answer("👥 Hali hech qanday talaba yo'q.")
         return
 
-    lines = [f"👥 <b>Jami talabalar: {len(students)} ta</b>\n"]
+    await message.answer(f"👥 <b>Jami talabalar: {len(students)} ta</b>", parse_mode="HTML")
+
     for i, u in enumerate(students, 1):
         name = u.get("full_name") or u.get("name") or u.get("first_name") or "Nomsiz"
         username = u.get("username", "")
         uname_str = f" (@{username})" if username else ""
         phone = u.get("phone", "") or u.get("phone_number", "")
-        phone_str = f" | 📞 {phone}" if phone else ""
-        lines.append(f"{i}. 👤 <b>{name}</b>{uname_str}{phone_str}")
+        phone_str = f"\n📞 {phone}" if phone else ""
+        uid = u.get("telegram_id", 0)
 
-    text = "\n".join(lines)
-    # Telegram 4096 belgi cheklov — bo'lib yuboramiz
-    for start in range(0, len(text), 4000):
-        await message.answer(text[start:start+4000], parse_mode="HTML")
+        text = (
+            f"👤 <b>{i}. {name}</b>{uname_str}"
+            f"{phone_str}"
+            f"\n🆔 ID: <code>{uid}</code>"
+        )
+        await message.answer(text, parse_mode="HTML", reply_markup=student_manage_kb(uid))
+
+
+@router.callback_query(F.data.startswith("student_delete_ask:"))
+async def student_delete_ask(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+    user_id = int(callback.data.split(":", 1)[1])
+    target = await fb.get_user(user_id)
+    if not target:
+        await callback.answer("Foydalanuvchi topilmadi!", show_alert=True)
+        return
+    name = target.get("full_name") or "Nomsiz"
+    await callback.message.edit_reply_markup(
+        reply_markup=student_delete_confirm_kb(user_id)
+    )
+    await callback.answer(f"⚠️ {name}ni o'chirishni tasdiqlaysizmi?", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("student_delete_confirm:"))
+async def student_delete_confirm(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+    user_id = int(callback.data.split(":", 1)[1])
+    target = await fb.get_user(user_id)
+    name = target.get("full_name") or "Nomsiz" if target else "Nomsiz"
+
+    await fb.delete_user(user_id)
+
+    # Talabaga xabar yuborish
+    try:
+        await callback.message.bot.send_message(
+            user_id,
+            "❌ Siz kursdan chetlatildingiz. Batafsil ma'lumot uchun ustoz bilan bog'laning."
+        )
+    except Exception:
+        pass
+
+    await callback.message.edit_text(
+        f"✅ <b>{name}</b> botdan o'chirildi.",
+        parse_mode="HTML",
+        reply_markup=None
+    )
+    await callback.answer("O'chirildi!", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("student_delete_cancel:"))
+async def student_delete_cancel(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user):
+        await callback.answer()
+        return
+    user_id = int(callback.data.split(":", 1)[1])
+    await callback.message.edit_reply_markup(reply_markup=student_manage_kb(user_id))
+    await callback.answer("Bekor qilindi.")
+
 
 
 @router.message(F.text == "🏆 Reyting")
