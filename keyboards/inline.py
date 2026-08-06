@@ -69,7 +69,7 @@ def admin_category_kb() -> InlineKeyboardMarkup:
     categories = [
         "Sarf", "Nahv",
         "Balog'at - Maoniy", "Balog'at - Bayon", "Balog'at - Badiy",
-        "She'r san'ati"
+        "She'riyat"
     ]
     builder = InlineKeyboardBuilder()
     for cat in categories:
@@ -88,7 +88,7 @@ def admin_access_kb(user_id: int, allowed_sections: list[str]) -> InlineKeyboard
     categories = [
         "Sarf", "Nahv",
         "Balog'at - Maoniy", "Balog'at - Bayon", "Balog'at - Badiy",
-        "She'r san'ati"
+        "She'riyat"
     ]
     builder = InlineKeyboardBuilder()
     for cat in categories:

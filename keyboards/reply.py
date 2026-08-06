@@ -27,7 +27,7 @@ def main_menu_kb(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
     if lang == "uz":
         rows = [
             ["📖 Sarf bo'limi", "📖 Nahv bo'limi"],
-            ["📖 Balog'at bo'limi", "📖 She'r san'ati bo'limi"],
+            ["📖 Balog'at bo'limi", "📖 She'riyat bo'limi"],
             ["💳 To'lov", "📢 Telegram kanal"],
         ]
     else:

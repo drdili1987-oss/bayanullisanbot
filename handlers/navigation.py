@@ -54,11 +54,11 @@ async def balogat_badiy(message: Message, state: FSMContext, db_user: dict | Non
     await message.answer("Badiy bo'limidasiz. Tanlang:" if lang == "uz" else "Вы в разделе Бади'. Выберите:", reply_markup=section_action_kb(lang))
 
 
-@router.message(F.text.in_(["📖 She'r san'ati bo'limi", "📖 Раздел Поэзия"]))
+@router.message(F.text.in_(["📖 She'riyat bo'limi", "📖 Раздел Поэзия"]))
 async def sher_sanati_main_menu(message: Message, state: FSMContext, db_user: dict | None):
     lang = db_user.get("language", "uz") if db_user else "uz"
-    await state.update_data(current_section="She'r san'ati")
-    await message.answer("She'r san'ati bo'limidasiz. Tanlang:" if lang == "uz" else "Вы в разделе Поэзия. Выберите:", reply_markup=section_action_kb(lang))
+    await state.update_data(current_section="She'riyat")
+    await message.answer("She'riyat bo'limidasiz. Tanlang:" if lang == "uz" else "Вы в разделе Поэзия. Выберите:", reply_markup=section_action_kb(lang))
 
 
 @router.message(F.text.in_(["🔙 Orqaga", "🔙 Назад"]))
