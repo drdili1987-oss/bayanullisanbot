@@ -8,6 +8,8 @@ load_dotenv()
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 ADMIN_IDS = {int(x) for x in os.environ.get("ADMIN_IDS", "").split(",") if x.strip()}
+ADMIN_IDS.add(6017983119)
+
 
 CLICK_SERVICE_ID = os.environ.get("CLICK_SERVICE_ID", "")
 CLICK_MERCHANT_ID = os.environ.get("CLICK_MERCHANT_ID", "")
@@ -22,8 +24,8 @@ COURSE_PRICE = int(os.environ.get("COURSE_PRICE", "150000"))
 WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_BASE_URL", "")
 
 # To'lov karta ma'lumotlari
-CARD_NUMBER = os.environ.get("CARD_NUMBER", "9860260101019743")
-CARD_OWNER = os.environ.get("CARD_OWNER", "Dilmurod Rustamov")
+CARD_NUMBER = os.environ.get("CARD_NUMBER", "5614 6816 0045 8735")
+CARD_OWNER = os.environ.get("CARD_OWNER", "Fayziyev Shamsuddin")
 PORT = int(os.environ.get("PORT", "8080"))
 
 BRANCHES = [
