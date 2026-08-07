@@ -28,7 +28,8 @@ async def pay_course_show_card(callback: CallbackQuery, db_user: dict | None):
     course_title = course.get("title", "") if course else ""
     cat_name = course.get("category", "") if course else ""
 
-    price = 120000 if cat_name == "She'riyat" else COURSE_PRICE
+    default_price = 120000 if cat_name == "She'riyat" else COURSE_PRICE
+    price = course.get("price", default_price) if course else default_price
 
     card_text = (
         f"💳 <b>To'lov ma'lumotlari</b>\n\n"

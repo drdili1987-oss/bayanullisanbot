@@ -31,7 +31,7 @@ class AdminCourse(StatesGroup):
     choosing_category = State()
     entering_number = State()
     entering_title = State()
-    
+    entering_price = State()
 class AdminCourseEdit(StatesGroup):
     waiting_course_number = State()
     

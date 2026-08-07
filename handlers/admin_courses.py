@@ -115,11 +115,23 @@ async def course_enter_number(message: Message, state: FSMContext):
 
 @router.message(AdminCourse.entering_title, F.text)
 async def course_enter_title(message: Message, state: FSMContext):
+    await state.update_data(title=message.text.strip())
+    await state.set_state(AdminCourse.entering_price)
+    await message.answer("4-qadam: Kurs narxini raqamlarda kiriting (masalan: 150000):")
+
+@router.message(AdminCourse.entering_price, F.text)
+async def course_enter_price(message: Message, state: FSMContext):
+    price_text = message.text.strip()
+    if not price_text.isdigit():
+        await message.answer("Iltimos, narxni faqat raqamlarda kiriting (masalan: 150000):")
+        return
+        
     data = await state.get_data()
     course_id = await fb.create_course({
         "category": data["category"],
         "course_number": data["course_number"],
-        "title": message.text.strip()
+        "title": data["title"],
+        "price": int(price_text)
     })
     await state.clear()
     
