@@ -28,10 +28,12 @@ async def pay_course_show_card(callback: CallbackQuery, db_user: dict | None):
     course_title = course.get("title", "") if course else ""
     cat_name = course.get("category", "") if course else ""
 
+    price = 120000 if cat_name == "She'riyat" else COURSE_PRICE
+
     card_text = (
         f"💳 <b>To'lov ma'lumotlari</b>\n\n"
         f"📚 Kurs: {course_num}-kurs — {course_title}\n"
-        f"💰 Narxi: <b>{COURSE_PRICE:,} so'm</b>\n\n"
+        f"💰 Narxi: <b>{price:,} so'm</b>\n\n"
         f"━━━━━━━━━━━━━━━━━\n"
         f"🏦 Karta raqami:\n"
         f"<code>{CARD_NUMBER}</code>\n\n"
@@ -42,7 +44,7 @@ async def pay_course_show_card(callback: CallbackQuery, db_user: dict | None):
     ) if lang == "uz" else (
         f"💳 <b>Данные для оплаты</b>\n\n"
         f"📚 Курс: {course_num}-курс — {course_title}\n"
-        f"💰 Стоимость: <b>{COURSE_PRICE:,} сум</b>\n\n"
+        f"💰 Стоимость: <b>{price:,} сум</b>\n\n"
         f"━━━━━━━━━━━━━━━━━\n"
         f"🏦 Номер карты:\n"
         f"<code>{CARD_NUMBER}</code>\n\n"
