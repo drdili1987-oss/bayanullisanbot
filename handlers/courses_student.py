@@ -142,22 +142,29 @@ async def _send_media(bot, chat_id, media_type, media_url, text, protect_content
 
 @router.callback_query(F.data.startswith("course_manual:"))
 async def course_manual(callback: CallbackQuery):
+    import asyncio
     course_id = callback.data.split(":", 1)[1]
     course = await fb.get_course(course_id)
     if not course:
         await callback.answer("Topilmadi.", show_alert=True)
         return
         
-    text = course.get("manual_text", "")
-    media_url = course.get("manual_media_url")
-    media_type = course.get("manual_media_type")
+    manuals = course.get("manuals", [])
+    if not manuals and (course.get("manual_text") or course.get("manual_media_url")):
+        manuals.append({
+            "text": course.get("manual_text", ""),
+            "media_type": course.get("manual_media_type"),
+            "media_url": course.get("manual_media_url")
+        })
     
-    if not text and not media_url:
+    if not manuals:
         await callback.answer("Hali kiritilmagan", show_alert=True)
         return
         
     await callback.answer()
-    await _send_media(callback.message.bot, callback.from_user.id, media_type, media_url, text)
+    for m in manuals:
+        await _send_media(callback.message.bot, callback.fromuser.id if hasattr(callback, 'fromuser') else callback.from_user.id, m.get("media_type"), m.get("media_url"), m.get("text", ""))
+        await asyncio.sleep(0.5)
 
 
 @router.callback_query(F.data.startswith("course_lessons:"))
@@ -172,7 +179,8 @@ async def course_lessons_list(callback: CallbackQuery):
         
     for lesson in lessons:
         lnum = lesson.get('lesson_number', '?')
-        builder.button(text=f"{lnum}-dars", callback_data=f"clesson_view:{course_id}:{lnum}")
+        display_num = str(lnum).replace('.0', '') if str(lnum).endswith('.0') else str(lnum)
+        builder.button(text=f"{display_num}-dars", callback_data=f"clesson_view:{course_id}:{lnum}")
     
     builder.button(text="🔙 Orqaga", callback_data=f"course_enter:{course_id}")
     builder.adjust(2)
@@ -191,14 +199,15 @@ async def course_lesson_view(callback: CallbackQuery):
     builder.button(text="🔙 Orqaga", callback_data=f"course_lessons:{course_id}")
     builder.adjust(2, 1)
     
-    await callback.message.edit_text(f"<b>{lesson_num}-dars</b> menyusi:", reply_markup=builder.as_markup(), parse_mode="HTML")
+    display_num = str(lesson_num).replace('.0', '') if str(lesson_num).endswith('.0') else str(lesson_num)
+    await callback.message.edit_text(f"<b>{display_num}-dars</b> menyusi:", reply_markup=builder.as_markup(), parse_mode="HTML")
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("clesson_vid:"))
 async def course_video(callback: CallbackQuery):
     _, course_id, lesson_num = callback.data.split(":")
-    lesson = await fb.get_course_lesson(course_id, int(lesson_num))
+    lesson = await fb.get_course_lesson(course_id, float(lesson_num))
     if not lesson:
         await callback.answer("Topilmadi.", show_alert=True)
         return
@@ -218,7 +227,7 @@ async def course_video(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("clesson_hw_start:"))
 async def course_assignment(callback: CallbackQuery, state: FSMContext, db_user: dict | None):
     _, course_id, lesson_num = callback.data.split(":")
-    lesson = await fb.get_course_lesson(course_id, int(lesson_num))
+    lesson = await fb.get_course_lesson(course_id, float(lesson_num))
     if not lesson:
         await callback.answer("Topilmadi.", show_alert=True)
         return
@@ -261,7 +270,7 @@ async def course_assignment(callback: CallbackQuery, state: FSMContext, db_user:
 @router.callback_query(F.data.startswith("lt:"))
 async def lesson_test_answer(callback: CallbackQuery):
     _, course_id, lesson_num, q_idx, opt_idx = callback.data.split(":")
-    lesson = await fb.get_course_lesson(course_id, int(lesson_num))
+    lesson = await fb.get_course_lesson(course_id, float(lesson_num))
     if not lesson:
         await callback.answer("Topilmadi.")
         return
@@ -295,7 +304,7 @@ async def lesson_test_answer(callback: CallbackQuery):
         f"📊 <b>Test natijasi (Dars ichida)</b>\n\n"
         f"👤 Talaba: {user_name}\n"
         f"📚 Kurs: {course_name}\n"
-        f"📖 Dars: {lesson_num}-dars\n"
+        f"📖 Dars: {str(lesson_num).replace('.0', '') if str(lesson_num).endswith('.0') else str(lesson_num)}-dars\n"
         f"❓ Savol: {q.get('question')}\n"
         f"🎯 Natija: {result_text}"
     )
@@ -308,7 +317,7 @@ async def lesson_test_answer(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("send_hw:"))
 async def send_hw_start(callback: CallbackQuery, state: FSMContext):
     _, course_id, lesson_num = callback.data.split(":")
-    await state.update_data(hw_course_id=course_id, hw_lesson_num=int(lesson_num))
+    await state.update_data(hw_course_id=course_id, hw_lesson_num=float(lesson_num))
     await state.set_state(Homework.waiting_content)
     
     await callback.message.answer("Javob matni, rasm, fayl yoki ovozli xabar jo'natishingiz mumkin:")
@@ -371,7 +380,8 @@ async def process_homework(message: Message, state: FSMContext, db_user: dict | 
     # Adminga xabar
     course = await fb.get_course(course_id)
     c_title = f"{course.get('course_number')}-kurs" if course else course_id
-    admin_msg = f"🔔 Yangi uy vazifasi!\n👤 Talaba: {db_user.get('full_name')}\n📚 Kurs: {c_title}\n📖 Dars: {lesson_num}"
+    display_num = str(lesson_num).replace('.0', '') if str(lesson_num).endswith('.0') else str(lesson_num)
+    admin_msg = f"🔔 Yangi uy vazifasi!\n👤 Talaba: {db_user.get('full_name')}\n📚 Kurs: {c_title}\n📖 Dars: {display_num}"
     if content:
         admin_msg += f"\n\nJavob:\n{content}"
     

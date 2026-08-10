@@ -58,6 +58,9 @@ async def admin_users_list(message: Message, db_user: dict | None):
         await message.answer("👥 Hali hech qanday talaba yo'q.")
         return
 
+    courses = await fb.list_courses()
+    course_dict = {c["id"]: c for c in courses}
+
     await message.answer(f"👥 <b>Jami talabalar: {len(students)} ta</b>", parse_mode="HTML")
 
     for i, u in enumerate(students, 1):
@@ -68,10 +71,23 @@ async def admin_users_list(message: Message, db_user: dict | None):
         phone_str = f"\n📞 {phone}" if phone else ""
         uid = u.get("telegram_id", 0)
 
+        allowed = u.get("allowed_courses", [])
+        paid_courses_text = "\n📚 To'lov qilgan kurslari: <b>Yo'q</b>"
+        if allowed:
+            paid_courses = []
+            for cid in allowed:
+                if cid in course_dict:
+                    c = course_dict[cid]
+                    paid_courses.append(f"{c.get('course_number', '?')}-kurs: {c.get('title', '')}")
+            
+            if paid_courses:
+                paid_courses_text = "\n📚 <b>To'lov qilgan kurslari:</b>\n  ✅ " + "\n  ✅ ".join(paid_courses)
+
         text = (
             f"👤 <b>{i}. {name}</b>{uname_str}"
             f"{phone_str}"
             f"\n🆔 ID: <code>{uid}</code>"
+            f"\n{paid_courses_text}"
         )
         await message.answer(text, parse_mode="HTML", reply_markup=student_manage_kb(uid))
 
@@ -353,7 +369,25 @@ async def admin_manage_access(callback: CallbackQuery, db_user: dict | None):
     if not target_user:
         await callback.answer("Foydalanuvchi topilmadi", show_alert=True)
         return
+    
     allowed_sections = target_user.get("allowed_sections", [])
+    allowed_courses = target_user.get("allowed_courses", [])
+    
+    if allowed_courses:
+        courses = await fb.list_courses()
+        course_dict = {c["id"]: c for c in courses}
+        changed = False
+        for cid in allowed_courses:
+            c = course_dict.get(cid)
+            if c:
+                cat = c.get("category")
+                if cat and cat not in allowed_sections:
+                    allowed_sections.append(cat)
+                    changed = True
+        
+        if changed:
+            await fb.update_user(user_id, {"allowed_sections": allowed_sections})
+
     await callback.message.edit_reply_markup(reply_markup=admin_access_kb(user_id, allowed_sections))
     await callback.answer()
 
@@ -427,12 +461,22 @@ async def admin_grant_course(callback: CallbackQuery, db_user: dict | None):
         return
 
     allowed_courses = target_user.get("allowed_courses", [])
+    allowed_sections = target_user.get("allowed_sections", [])
+    cat_name = course.get("category", "")
+    
+    updated_fields = {}
     if course_id not in allowed_courses:
         allowed_courses.append(course_id)
-        await fb.update_user(target_user_id, {"allowed_courses": allowed_courses})
+        updated_fields["allowed_courses"] = allowed_courses
+        
+    if cat_name and cat_name not in allowed_sections:
+        allowed_sections.append(cat_name)
+        updated_fields["allowed_sections"] = allowed_sections
+        
+    if updated_fields:
+        await fb.update_user(target_user_id, updated_fields)
 
     c_title = f"{course.get('course_number')}-kurs: {course.get('title')}"
-    cat_name = course.get("category", "")
 
     # Notify student - kurs ochildi
     try:

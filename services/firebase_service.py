@@ -73,7 +73,7 @@ async def delete_course(course_id: str) -> None:
 
 # ---------- Course Lessons ----------
 
-def _get_course_lesson_sync(course_id: str, lesson_num: int) -> Optional[dict]:
+def _get_course_lesson_sync(course_id: str, lesson_num: float) -> Optional[dict]:
     query = db.collection(COURSE_LESSONS).where(filter=FieldFilter("course_id", "==", course_id)).where(filter=FieldFilter("lesson_number", "==", lesson_num)).limit(1)
     docs = list(query.stream())
     if not docs:
@@ -82,10 +82,10 @@ def _get_course_lesson_sync(course_id: str, lesson_num: int) -> Optional[dict]:
     d["id"] = docs[0].id
     return d
 
-async def get_course_lesson(course_id: str, lesson_num: int) -> Optional[dict]:
+async def get_course_lesson(course_id: str, lesson_num: float) -> Optional[dict]:
     return await _run(_get_course_lesson_sync, course_id, lesson_num)
 
-def _update_course_lesson_sync(course_id: str, lesson_num: int, data: dict) -> None:
+def _update_course_lesson_sync(course_id: str, lesson_num: float, data: dict) -> None:
     existing = _get_course_lesson_sync(course_id, lesson_num)
     if existing:
         db.collection(COURSE_LESSONS).document(existing["id"]).set(data, merge=True)
@@ -95,7 +95,7 @@ def _update_course_lesson_sync(course_id: str, lesson_num: int, data: dict) -> N
         data["created_at"] = time.time()
         db.collection(COURSE_LESSONS).document().set(data)
 
-async def update_course_lesson(course_id: str, lesson_num: int, data: dict) -> None:
+async def update_course_lesson(course_id: str, lesson_num: float, data: dict) -> None:
     await _run(_update_course_lesson_sync, course_id, lesson_num, data)
 
 def _get_course_lessons_sync(course_id: str) -> list[dict]:
@@ -105,7 +105,7 @@ def _get_course_lessons_sync(course_id: str) -> list[dict]:
         d = doc.to_dict()
         d["id"] = doc.id
         result.append(d)
-    result.sort(key=lambda x: int(x.get("lesson_number", 0)))
+    result.sort(key=lambda x: float(x.get("lesson_number", 0.0)))
     return result
 
 async def get_course_lessons(course_id: str) -> list[dict]:

@@ -25,8 +25,8 @@ async def pay_course_show_card(callback: CallbackQuery, db_user: dict | None):
 
     course = await fb.get_course(course_id)
     course_num = course.get("course_number", "?") if course else "?"
-    course_title = course.get("title", "") if course else ""
-    cat_name = course.get("category", "") if course else ""
+    course_title = course.get("title") or course.get("name") or "Nomsiz"
+    cat_name = course.get("category") or "Noma'lum"
 
     default_price = 120000 if cat_name == "She'riyat" else COURSE_PRICE
     price = course.get("price", default_price) if course else default_price
@@ -80,6 +80,14 @@ async def pay_course_done(callback: CallbackQuery, state: FSMContext, db_user: d
     course_id = callback.data.split(":", 1)[1]
     lang = db_user.get("language", "uz")
 
+    course = await fb.get_course(course_id)
+    if not course:
+        await callback.answer(
+            "⚠️ Kurs topilmadi. U o'chirilgan bo'lishi mumkin." if lang == "uz" else "⚠️ Курс не найден. Возможно, он был удален.", 
+            show_alert=True
+        )
+        return
+
     await state.update_data(paying_course_id=course_id)
     await state.set_state(PaymentFlow.waiting_screenshot)
 
@@ -117,11 +125,16 @@ async def receive_payment_screenshot(message: Message, state: FSMContext, db_use
     await state.clear()
 
     course = await fb.get_course(course_id)
-    course_num = course.get("course_number", "?") if course else "?"
-    course_title = course.get("title", "") if course else ""
-    cat_name = course.get("category", "") if course else ""
+    if not course:
+        msg = "⚠️ Kurs topilmadi. U o'chirilgan bo'lishi mumkin." if lang == "uz" else "⚠️ Курс не найден. Возможно, он был удален."
+        await message.answer(msg)
+        return
 
-    user_name = db_user.get("full_name", message.from_user.full_name)
+    course_num = course.get("course_number", "?")
+    course_title = course.get("title") or course.get("name") or "Nomsiz"
+    cat_name = course.get("category") or "Noma'lum"
+
+    user_name = db_user.get("full_name") or db_user.get("name") or message.from_user.full_name
     user_id = message.from_user.id
 
     # Talabaga tasdiqlash xabari
@@ -144,10 +157,11 @@ async def receive_payment_screenshot(message: Message, state: FSMContext, db_use
         f"👤 Talaba: {user_name}\n"
         f"🆔 Telegram ID: {user_id}\n"
         f"📂 Bo'lim: {cat_name}\n"
-        f"📚 Kurs: {course_num}-kurs — {course_title}\n\n"
+        f"📚 Kurs: {course_num}-kurs — {course_title}\n"
+        f"🔑 Kurs ID: <code>{course_id}</code>\n\n"
         f"📸 To'lov screenshoti yuborildi."
     )
-
+    
     builder = InlineKeyboardBuilder()
     builder.button(
         text="✅ Ruxsat berish va Kursni ochish",

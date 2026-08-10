@@ -27,7 +27,7 @@ def _courses_list_kb(courses: list[dict]):
 
 def _course_manage_kb(course_id: str):
     builder = InlineKeyboardBuilder()
-    builder.button(text="📖 Qo'llanma", callback_data=f"cedit_manual:{course_id}")
+    builder.button(text="📖 Qo'llanmalar (Boshqarish)", callback_data=f"cman_menu:{course_id}")
     builder.button(text="🎬 Video dars", callback_data=f"cedit_video:{course_id}")
     builder.button(text="📝 Topshiriq", callback_data=f"cedit_assignment:{course_id}")
     builder.button(text="🗑 O'chirish", callback_data=f"course_del:{course_id}")
@@ -179,7 +179,38 @@ async def _process_media(message: Message, folder: str) -> tuple[str, str, str]:
     return media_type, media_url, ext
 
 
-# 1. Qo'llanma
+# 1. Qo'llanmalar boshqaruvi
+@router.callback_query(F.data.startswith("cman_menu:"))
+async def cman_menu(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user): return
+    course_id = callback.data.split(":", 1)[1]
+    
+    course = await fb.get_course(course_id)
+    if not course:
+        await callback.answer("Kurs topilmadi.")
+        return
+        
+    manuals = course.get("manuals", [])
+    if not manuals and (course.get("manual_text") or course.get("manual_media_url")):
+        manuals = [{"text": course.get("manual_text"), "media_type": course.get("manual_media_type"), "media_url": course.get("manual_media_url")}]
+        
+    builder = InlineKeyboardBuilder()
+    builder.button(text="➕ Qo'llanma qo'shish", callback_data=f"cedit_manual:{course_id}")
+    builder.button(text="🗑 Barchasini o'chirish", callback_data=f"cman_clear:{course_id}")
+    builder.button(text="🔙 Orqaga", callback_data=f"course_view:{course_id}")
+    builder.adjust(1)
+    
+    await callback.message.edit_text(f"Kursda hozir {len(manuals)} ta qo'llanma bor.\nNima qilamiz?", reply_markup=builder.as_markup())
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("cman_clear:"))
+async def cman_clear(callback: CallbackQuery, db_user: dict | None):
+    if not _require_admin(db_user): return
+    course_id = callback.data.split(":", 1)[1]
+    await fb.update_course(course_id, {"manuals": [], "manual_text": None, "manual_media_type": None, "manual_media_url": None})
+    await callback.answer("Barcha qo'llanmalar o'chirildi!", show_alert=True)
+    await cman_menu(callback, db_user)
+
 @router.callback_query(F.data.startswith("cedit_manual:"))
 async def cedit_manual_start(callback: CallbackQuery, state: FSMContext, db_user: dict | None):
     if not _require_admin(db_user): return
@@ -196,7 +227,14 @@ async def cedit_manual_text_media_direct(message: Message, state: FSMContext):
     course_id = data["edit_course_id"]
     msg = await message.answer("Yuklanmoqda...")
     media_type, media_url, _ = await _process_media(message, course_id)
-    await fb.update_course(course_id, {"manual_text": caption, "manual_media_type": media_type, "manual_media_url": media_url})
+    
+    course = await fb.get_course(course_id)
+    manuals = course.get("manuals", [])
+    if not manuals and (course.get("manual_text") or course.get("manual_media_url")):
+        manuals.append({"text": course.get("manual_text"), "media_type": course.get("manual_media_type"), "media_url": course.get("manual_media_url")})
+    manuals.append({"text": caption, "media_type": media_type, "media_url": media_url})
+    
+    await fb.update_course(course_id, {"manuals": manuals})
     await state.clear()
     await msg.edit_text("✅ Qo'llanma saqlandi.")
 
@@ -210,10 +248,22 @@ async def cedit_manual_text(message: Message, state: FSMContext):
 async def cedit_manual_skip(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     course_id = data["edit_course_id"]
-    await fb.update_course(course_id, {"manual_text": data["manual_text"], "manual_media_url": None, "manual_media_type": None})
+    
+    course = await fb.get_course(course_id)
+    manuals = course.get("manuals", [])
+    if not manuals and (course.get("manual_text") or course.get("manual_media_url")):
+        manuals.append({"text": course.get("manual_text"), "media_type": course.get("manual_media_type"), "media_url": course.get("manual_media_url")})
+    manuals.append({"text": data["manual_text"], "media_type": None, "media_url": None})
+    
+    await fb.update_course(course_id, {"manuals": manuals})
     await state.clear()
     await callback.message.answer("✅ Qo'llanma mediasiz saqlandi.")
-    await course_view(callback, {"role": "admin"}, course_id=course_id)
+    
+    # Simulating a mock db_user since we only need the role
+    mock_db_user = {"role": "admin"}
+    # Call the cman_menu to return to manuals list
+    callback.data = f"cman_menu:{course_id}"
+    await cman_menu(callback, mock_db_user)
 
 @router.message(AdminCourseEdit.waiting_manual_media, F.photo | F.document | F.text | F.video | F.audio | F.voice)
 async def cedit_manual_media(message: Message, state: FSMContext):
@@ -221,7 +271,14 @@ async def cedit_manual_media(message: Message, state: FSMContext):
     course_id = data["edit_course_id"]
     msg = await message.answer("Yuklanmoqda...")
     media_type, media_url, _ = await _process_media(message, course_id)
-    await fb.update_course(course_id, {"manual_text": data["manual_text"], "manual_media_type": media_type, "manual_media_url": media_url})
+    
+    course = await fb.get_course(course_id)
+    manuals = course.get("manuals", [])
+    if not manuals and (course.get("manual_text") or course.get("manual_media_url")):
+        manuals.append({"text": course.get("manual_text"), "media_type": course.get("manual_media_type"), "media_url": course.get("manual_media_url")})
+    manuals.append({"text": data["manual_text"], "media_type": media_type, "media_url": media_url})
+    
+    await fb.update_course(course_id, {"manuals": manuals})
     await state.clear()
     await msg.edit_text("✅ Qo'llanma saqlandi.")
 
@@ -238,12 +295,16 @@ async def cedit_video_start(callback: CallbackQuery, state: FSMContext, db_user:
 
 @router.message(AdminCourseEdit.waiting_lesson_num_for_video, F.text)
 async def cedit_video_lesson_num(message: Message, state: FSMContext):
-    if not message.text.isdigit():
-        await message.answer("Iltimos, faqat raqam kiriting (masalan: 1)")
+    try:
+        val = float(message.text.replace(",", "."))
+    except ValueError:
+        await message.answer("Iltimos, faqat raqam kiriting (masalan: 1 yoki 1.2)")
         return
-    await state.update_data(lesson_num=int(message.text))
+    await state.update_data(lesson_num=val)
     await state.set_state(AdminCourseEdit.waiting_video_text)
-    await message.answer(f"🎬 {message.text}-dars videosi uchun tavsif yuboring:\n(Yoki to'g'ridan-to'g'ri Videoni o'zini jo'natsangiz ham bo'ladi)")
+    
+    display_num = str(val).replace('.0', '') if str(val).endswith('.0') else str(val)
+    await message.answer(f"🎬 {display_num}-dars videosi uchun tavsif yuboring:\n(Yoki to'g'ridan-to'g'ri Videoni o'zini jo'natsangiz ham bo'ladi)")
 
 @router.message(AdminCourseEdit.waiting_video_text, F.photo | F.document | F.video | F.audio | F.voice)
 async def cedit_video_text_media_direct(message: Message, state: FSMContext):
@@ -287,12 +348,16 @@ async def cedit_assignment_start(callback: CallbackQuery, state: FSMContext, db_
 
 @router.message(AdminCourseEdit.waiting_lesson_num_for_assignment, F.text)
 async def cedit_assignment_lesson_num(message: Message, state: FSMContext):
-    if not message.text.isdigit():
-        await message.answer("Iltimos, faqat raqam kiriting (masalan: 1)")
+    try:
+        val = float(message.text.replace(",", "."))
+    except ValueError:
+        await message.answer("Iltimos, faqat raqam kiriting (masalan: 1 yoki 1.2)")
         return
-    await state.update_data(lesson_num=int(message.text))
+    await state.update_data(lesson_num=val)
     await state.set_state(AdminCourseEdit.waiting_assignment_text)
-    await message.answer(f"📝 {message.text}-dars topshiriq matnini yuboring:\n(Yoki to'g'ridan-to'g'ri fayl/rasm jo'natsangiz ham bo'ladi)")
+    
+    display_num = str(val).replace('.0', '') if str(val).endswith('.0') else str(val)
+    await message.answer(f"📝 {display_num}-dars topshiriq matnini yuboring:\n(Yoki to'g'ridan-to'g'ri fayl/rasm jo'natsangiz ham bo'ladi)")
 
 @router.message(AdminCourseEdit.waiting_assignment_text, F.photo | F.document | F.video | F.audio | F.voice)
 async def cedit_assignment_text_media_direct(message: Message, state: FSMContext):
@@ -325,7 +390,8 @@ async def cedit_assignment_skip(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Ha, test qo'shish", callback_data="add_lesson_test:yes")
     builder.button(text="❌ Yo'q, kerak emas", callback_data="add_lesson_test:no")
-    await callback.message.answer(f"✅ {lesson_num}-dars topshirig'i mediasiz saqlandi. \n\nUshbu topshiriq uchun qo'shimcha Test ham qo'shasizmi?", reply_markup=builder.as_markup())
+    display_num = str(lesson_num).replace('.0', '') if str(lesson_num).endswith('.0') else str(lesson_num)
+    await callback.message.answer(f"✅ {display_num}-dars topshirig'i mediasiz saqlandi. \n\nUshbu topshiriq uchun qo'shimcha Test ham qo'shasizmi?", reply_markup=builder.as_markup())
     await callback.answer()
 
 @router.message(AdminCourseEdit.waiting_assignment_media, F.photo | F.document | F.text | F.video | F.audio | F.voice)
@@ -440,6 +506,7 @@ async def lesson_test_action(callback: CallbackQuery, state: FSMContext, db_user
             await fb.update_course_lesson(course_id, lesson_num, {"tests": questions})
             
         await state.clear()
-        await callback.message.edit_text(f"🎉 Ajoyib! {lesson_num}-dars uchun topshiriq va {len(questions)} ta savollik test saqlandi.")
+        display_num = str(lesson_num).replace('.0', '') if str(lesson_num).endswith('.0') else str(lesson_num)
+        await callback.message.edit_text(f"🎉 Ajoyib! {display_num}-dars uchun topshiriq va {len(questions)} ta savollik test saqlandi.")
         if course_id:
             await course_view(callback, db_user, course_id=course_id)
