@@ -9,7 +9,7 @@ services:
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_IDS
-        sync: false
+        value: "156664,55813350,1400471145"
       - key: FIREBASE_CREDENTIALS_JSON
         sync: false
       - key: FIREBASE_STORAGE_BUCKET
