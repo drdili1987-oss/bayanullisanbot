@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="uz" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bayanul Lisan - Arab Tili Platformasi</title>
+    <meta name="description" content="Bayanul Lisan — Sarf, Nahv, Balog'at va She'riyat ilmlarini o'rganish bo'yicha №1 platforma">
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- App Styles -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <div id="app">
+        <!-- ═══════════ TOP NAVIGATION ═══════════ -->
+        <nav class="top-nav">
+            <div class="logo-container" onclick="switchTab('home')">
+                <div class="logo-symbol">ب</div>
+                <div class="logo-text">Bayanul Lisan</div>
+            </div>
+            <div id="user-badge-container">
+                <div class="user-badge" onclick="switchTab('profile')">
+                    <span>👤 Kirish</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ═══════════ VIEW 1: HOME & COURSES CATALOG ═══════════ -->
+        <main id="home-view" class="app-view">
+            <!-- Hero Banner -->
+            <div class="hero-banner">
+                <div class="hero-tag">✨ Arab tili akademiyasi</div>
+                <h1>Arab tilini <span class="gradient-gold">chuqur va mukammal</span> o'rganing</h1>
+                <p>Sarf, Nahv, Balog'at va She'riyat ilmlarini zamonaviy video darslar hamda talaffuz mashqlari orqali o'zlashtiring.</p>
+            </div>
+
+            <!-- Categories Horizontal Slider -->
+            <div class="categories-bar" id="categories-bar">
+                <!-- Categories rendered dynamically -->
+            </div>
+
+            <div class="section-title-wrap">
+                <h2 class="section-title">📚 Mavjud kurslar</h2>
+                <span style="font-size:12px; color:var(--text-secondary);" id="courses-count">Katalog</span>
+            </div>
+
+            <!-- Courses Grid -->
+            <div class="courses-grid" id="courses-grid">
+                <!-- Course cards rendered dynamically -->
+            </div>
+        </main>
+
+        <!-- ═══════════ VIEW 2: COURSE DETAIL & LESSONS ═══════════ -->
+        <main id="course-detail-view" class="app-view" style="display:none;">
+            <div class="player-container">
+                <button class="btn-sm" style="background:var(--bg-card); color:var(--text-secondary); margin-bottom:14px;" onclick="switchTab('home')">
+                    &larr; Kurslar ro'yxatiga qaytish
+                </button>
+
+                <h1 id="cd-title" style="font-size:22px; margin-bottom:6px;">Kurs nomi</h1>
+                <p id="cd-desc" style="color:var(--text-secondary); font-size:14px; margin-bottom:18px;"></p>
+
+                <!-- Payment Banner (if locked) -->
+                <div id="cd-pay-box"></div>
+
+                <h3 style="font-size:17px; margin-bottom:12px;">📖 Darslar ro'yxati:</h3>
+                <div id="cd-lessons-list">
+                    <!-- Lessons rendered dynamically -->
+                </div>
+            </div>
+        </main>
+
+        <!-- ═══════════ VIEW 3: LESSON PLAYER & SPEECH PRACTICE ═══════════ -->
+        <main id="lesson-player-view" class="app-view" style="display:none;">
+            <div class="player-container">
+                <button class="btn-sm" style="background:var(--bg-card); color:var(--text-secondary); margin-bottom:14px;" onclick="switchView('course-detail-view')">
+                    &larr; Kurs mundarijasiga qaytish
+                </button>
+
+                <div class="video-frame-box" id="lp-video-box">
+                    <!-- Iframe video -->
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <span style="font-size:12px; color:var(--gold); font-weight:700;" id="lp-course-name">KURS NOMI</span>
+                    <h1 id="lp-title" style="font-size:20px; margin:4px 0 8px;">Dars nomi</h1>
+                    <p id="lp-desc" style="color:var(--text-secondary); font-size:14px;"></p>
+                </div>
+
+                <!-- 🎙 Interactive Arabic Pronunciation Test (Nutq mashqi) -->
+                <div class="speech-card">
+                    <div style="font-size:12px; text-transform:uppercase; color:var(--primary-light); font-weight:700; letter-spacing:1px;">
+                        🎙 Talaffuz mashqi (Nutqingizni tekshiring)
+                    </div>
+                    
+                    <div class="speech-phrase" id="speech-expected-phrase">
+                        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                    </div>
+                    <div class="speech-translation" id="speech-translation">
+                        Mehribon va rahmli Alloh nomi bilan
+                    </div>
+
+                    <button class="mic-btn-circle" id="mic-btn" onclick="toggleRecording()" title="Ovozni yozish">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <div style="font-size:12px; color:var(--text-secondary); margin-top:8px;">
+                        Mikrofonni bosing va arabcha jumlani o'qing
+                    </div>
+
+                    <div id="speech-result" class="speech-result-box" style="display:none;"></div>
+                </div>
+
+                <!-- 📝 Homework submission box -->
+                <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:20px; margin-top:20px;">
+                    <h3 style="font-size:16px; margin-bottom:10px;"><i class="fas fa-tasks"></i> Uyga vazifa topshirish</h3>
+                    <textarea id="hw-text-input" placeholder="Vazifa matni yoki tarjimangizni yozing..." style="width:100%; height:80px; background:#0b0f19; border:1px solid var(--border-color); border-radius:var(--radius-sm); color:#fff; padding:10px; font-family:inherit; margin-bottom:10px; resize:none;"></textarea>
+                    <input type="text" id="hw-audio-input" placeholder="Audio havola yoki fayl linki (ixtiyoriy)" style="width:100%; background:#0b0f19; border:1px solid var(--border-color); border-radius:var(--radius-sm); color:#fff; padding:10px; font-family:inherit; margin-bottom:12px; font-size:13px;">
+                    <button class="btn-sm btn-primary w-full" style="width:100%; padding:12px;" onclick="submitHomework()">
+                        Ustozga topshirish 📤
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- ═══════════ VIEW 4: QUIZZES CATALOG & RUNNER ═══════════ -->
+        <main id="quizzes-catalog-view" class="app-view" style="display:none;">
+            <div class="player-container">
+                <div class="hero-banner" style="background:linear-gradient(135deg, #312e81 0%, #0f172a 100%); border-color:var(--info);">
+                    <div class="hero-tag" style="border-color:var(--info); color:#93c5fd;">📝 Bilimni sinash</div>
+                    <h1>Arab tili bo'yicha <span class="gradient-emerald">interaktiv testlar</span></h1>
+                    <p>Sarf, Nahv va Balog'at qoidalarini mustahkamlash uchun savollarga javob bering va reyting ochkolari to'plang!</p>
+                </div>
+
+                <div class="section-title-wrap">
+                    <h2 class="section-title">Bo'limlar bo'yicha testlar</h2>
+                </div>
+
+                <div class="courses-grid">
+                    <div class="course-card" onclick="startQuizzes('sarf')">
+                        <div class="course-body">
+                            <h3>📖 Sarf ilmi testlari</h3>
+                            <p>Fe'llar tuslanishi, vaznlar va o'zak harflar bo'yicha savollar.</p>
+                            <button class="btn-sm btn-primary mt-auto">Boshlash &rarr;</button>
+                        </div>
+                    </div>
+                    <div class="course-card" onclick="startQuizzes('nahv')">
+                        <div class="course-body">
+                            <h3>📜 Nahv ilmi testlari</h3>
+                            <p>E'rob, jumlalar tuzilishi va gap bo'laklari testlari.</p>
+                            <button class="btn-sm btn-primary mt-auto">Boshlash &rarr;</button>
+                        </div>
+                    </div>
+                    <div class="course-card" onclick="startQuizzes('balogat')">
+                        <div class="course-body">
+                            <h3>✨ Balog'at ilmi testlari</h3>
+                            <p>Maoniy, Bayon va Badiy san'atlar bo'yicha maxsus savollar.</p>
+                            <button class="btn-sm btn-primary mt-auto">Boshlash &rarr;</button>
+                        </div>
+                    </div>
+                    <div class="course-card" onclick="startQuizzes('sheriyat')">
+                        <div class="course-body">
+                            <h3>🎵 She'riyat vaznlari</h3>
+                            <p>Aruz va barmoq vaznlari, qofiya va radif qoidalari.</p>
+                            <button class="btn-sm btn-primary mt-auto">Boshlash &rarr;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Quiz Runner View -->
+        <main id="quiz-runner-view" class="app-view" style="display:none;">
+            <div class="quiz-container">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+                    <span id="quiz-progress-text" style="color:var(--gold); font-weight:700;">Savol 1 / 10</span>
+                    <button class="btn-sm" style="background:var(--bg-card); color:var(--text-secondary);" onclick="switchTab('quizzes')">To'xtatish</button>
+                </div>
+                <div id="quiz-question-box">
+                    <!-- Question & Options rendered dynamically -->
+                </div>
+            </div>
+        </main>
+
+        <!-- ═══════════ VIEW 5: USER PROFILE & STATS ═══════════ -->
+        <main id="profile-view" class="app-view" style="display:none;">
+            <div class="player-container">
+                <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:24px; text-align:center; margin-bottom:20px;">
+                    <div style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color:white; font-size:28px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-weight:800;">
+                        👤
+                    </div>
+                    <h2 id="prof-name" style="font-size:20px; margin-bottom:4px;">Talaba</h2>
+                    <p id="prof-id" style="color:var(--text-secondary); font-size:13px; margin-bottom:16px;">ID: ...</p>
+                    
+                    <div style="display:flex; justify-content:center; gap:30px; border-top:1px solid var(--border-color); padding-top:16px;">
+                        <div>
+                            <div style="font-size:22px; font-weight:800; color:var(--gold);" id="prof-score">0</div>
+                            <div style="font-size:12px; color:var(--text-muted);">To'plangan ball</div>
+                        </div>
+                        <div>
+                            <div style="font-size:22px; font-weight:800; color:var(--primary);" id="prof-courses-count">0</div>
+                            <div style="font-size:12px; color:var(--text-muted);">Ochiq kurslar</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px;">
+                    <h3 style="font-size:16px; margin-bottom:12px;">📞 Yordam va Aloqa</h3>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:14px;">Savollaringiz yoki to'lov bo'yicha muammolar bo'lsa, rasmiy bot orqali murojaat qiling.</p>
+                    <a href="https://t.me/bayanullisan_bot" target="_blank" class="btn-sm btn-primary" style="display:inline-block; text-decoration:none;">
+                        🤖 Telegram Botga o'tish
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <!-- ═══════════ CHECKOUT MODAL ═══════════ -->
+        <div class="modal-overlay" id="checkout-modal">
+            <div class="modal-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                    <h3 style="font-size:18px;">💳 To'lov turini tanlang</h3>
+                    <button onclick="closeCheckoutModal()" style="background:none; border:none; color:var(--text-secondary); font-size:20px; cursor:pointer;">&times;</button>
+                </div>
+                <p style="color:var(--text-secondary); font-size:13px; margin-bottom:6px;">Kurs: <b id="modal-course-title" style="color:#fff;"></b></p>
+                <p style="color:var(--text-secondary); font-size:13px; margin-bottom:18px;">Narxi: <b id="modal-course-price" style="color:var(--gold); font-size:17px;"></b></p>
+
+                <button class="pay-provider-btn" style="border-color:#00a3e0;" onclick="startPayment('click')">
+                    <span style="color:#00a3e0;">●</span> Click orqali to'lash
+                </button>
+
+                <button class="pay-provider-btn" style="border-color:#00cccc;" onclick="startPayment('payme')">
+                    <span style="color:#00cccc;">●</span> Payme orqali to'lash
+                </button>
+
+                <div style="text-align:center; margin-top:14px;">
+                    <button class="btn-sm" style="background:none; border:none; color:var(--text-muted);" onclick="closeCheckoutModal()">Bekor qilish</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Alert -->
+        <div id="toast-msg" class="toast-msg"></div>
+
+        <!-- ═══════════ BOTTOM NAVIGATION ═══════════ -->
+        <nav class="bottom-nav">
+            <button class="nav-tab-btn active" id="nav-home-btn" onclick="switchTab('home')">
+                <i class="fas fa-book-open"></i>
+                <span>Kurslar</span>
+            </button>
+            <button class="nav-tab-btn" id="nav-quizzes-btn" onclick="switchTab('quizzes')">
+                <i class="fas fa-tasks"></i>
+                <span>Testlar</span>
+            </button>
+            <button class="nav-tab-btn" id="nav-profile-btn" onclick="switchTab('profile')">
+                <i class="fas fa-user-circle"></i>
+                <span>Kabinet</span>
+            </button>
+            <button class="nav-tab-btn" id="nav-admin-tab" style="display:none;" onclick="switchTab('admin')">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Interactive JS Script -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

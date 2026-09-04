@@ -2,7 +2,9 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardRemove,
+    WebAppInfo,
 )
+from config import WEBHOOK_BASE_URL
 
 
 def language_kb() -> ReplyKeyboardMarkup:
@@ -24,6 +26,15 @@ def phone_kb(lang: str) -> ReplyKeyboardMarkup:
 
 def main_menu_kb(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Talaba menyusi — adminga ko'rinmaydi."""
+    webapp_url = f"{WEBHOOK_BASE_URL.rstrip('/')}/app" if WEBHOOK_BASE_URL else ""
+    btn_text = "🚀 Platformaga kirish (Web App)" if lang == "uz" else "🚀 Открыть платформу (Web App)"
+    
+    keyboard = []
+    if webapp_url and webapp_url.startswith("https://"):
+        keyboard.append([KeyboardButton(text=btn_text, web_app=WebAppInfo(url=webapp_url))])
+    else:
+        keyboard.append([KeyboardButton(text=btn_text)])
+
     if lang == "uz":
         rows = [
             ["📖 Sarf bo'limi", "📖 Nahv bo'limi"],
@@ -36,7 +47,9 @@ def main_menu_kb(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
             ["📖 Раздел Балага", "📖 Раздел Поэзия"],
             ["📢 Telegram канал"],
         ]
-    keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
+    for row in rows:
+        keyboard.append([KeyboardButton(text=b) for b in row])
+        
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 def balogat_menu_kb(lang: str) -> ReplyKeyboardMarkup:
@@ -66,6 +79,14 @@ def section_action_kb(lang: str) -> ReplyKeyboardMarkup:
 
 def admin_menu_kb() -> ReplyKeyboardMarkup:
     """Admin uchun alohida menyu."""
+    keyboard = []
+    webapp_url = f"{WEBHOOK_BASE_URL.rstrip('/')}/app" if WEBHOOK_BASE_URL else ""
+    
+    if webapp_url and webapp_url.startswith("https://"):
+        keyboard.append([KeyboardButton(text="🚀 Platformaga kirish (Web App)", web_app=WebAppInfo(url=webapp_url))])
+    else:
+        keyboard.append([KeyboardButton(text="🚀 Platformaga kirish (Web App)")])
+
     rows = [
         ["📚 Kurslar", "👥 Foydalanuvchilar"],
         ["📝 Testlar", "📢 Broadcast"],
@@ -73,7 +94,9 @@ def admin_menu_kb() -> ReplyKeyboardMarkup:
         ["👨‍🎓 Talaba rejimi"],
         ["🏠 Bosh menu"],
     ]
-    keyboard = [[KeyboardButton(text=b) for b in row] for row in rows]
+    for row in rows:
+        keyboard.append([KeyboardButton(text=b) for b in row])
+
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 

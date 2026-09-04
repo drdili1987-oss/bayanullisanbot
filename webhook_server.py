@@ -185,4 +185,15 @@ def create_webhook_app(bot: Bot) -> web.Application:
     app.router.add_get("/health", health)
     app.router.add_post("/click/webhook", click_webhook)
     app.router.add_post("/payme/webhook", payme_webhook)
+
+    # Register Telegram Mini App API & Frontend
+    try:
+        from webapp_server import register_webapp_routes
+        import os
+        frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+        register_webapp_routes(app, bot, frontend_dir)
+        log.info(f"Telegram WebApp routes registered. Frontend path: {frontend_dir}")
+    except Exception as e:
+        log.error(f"Failed to register webapp routes: {e}")
+
     return app
