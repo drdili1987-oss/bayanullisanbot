@@ -245,6 +245,163 @@
             </div>
         </div>
 
+        <!-- ═══════════ VIEW 6: ADMIN PANEL ═══════════ -->
+        <main id="admin-view" class="app-view" style="display:none;">
+            <div class="player-container">
+
+                <!-- Admin Header -->
+                <div class="hero-banner" style="background:linear-gradient(135deg,#1e1b4b 0%,#0f172a 100%);border-color:#6366f1;margin-bottom:18px;">
+                    <div class="hero-tag" style="border-color:#818cf8;color:#a5b4fc;">🛡 Admin Panel</div>
+                    <h1>Kurs va Darslarni <span style="background:linear-gradient(135deg,#818cf8,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">boshqarish</span></h1>
+                    <p style="color:#94a3b8;">Video darslar, arabcha matnlar va kurs ma'lumotlarini bu yerdan kiritasiz.</p>
+                </div>
+
+                <!-- Tabs -->
+                <div style="display:flex;gap:8px;margin-bottom:18px;">
+                    <button class="btn-sm btn-primary" id="admin-tab-courses-btn" onclick="adminSwitchTab('courses')" style="flex:1;padding:10px;">📚 Kurslar</button>
+                    <button class="btn-sm" id="admin-tab-lessons-btn" onclick="adminSwitchTab('lessons')" style="flex:1;padding:10px;background:var(--bg-card);color:var(--text-secondary);">🎬 Darslar</button>
+                </div>
+
+                <!-- ── COURSES TAB ── -->
+                <div id="admin-courses-tab">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                        <h3 style="font-size:16px;">Mavjud Kurslar</h3>
+                        <button class="btn-sm btn-primary" onclick="adminShowCourseForm(null)">➕ Yangi Kurs</button>
+                    </div>
+                    <div id="admin-courses-list">
+                        <div style="color:var(--text-secondary);text-align:center;padding:30px;">⏳ Yuklanmoqda...</div>
+                    </div>
+                </div>
+
+                <!-- ── LESSONS TAB ── -->
+                <div id="admin-lessons-tab" style="display:none;">
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:6px;">Kursni tanlang:</label>
+                        <select id="admin-lesson-course-select" onchange="adminLoadLessons(this.value)" style="width:100%;padding:10px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;font-size:14px;">
+                            <option value="">— Kurs tanlang —</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                        <h3 style="font-size:16px;">Darslar ro'yxati</h3>
+                        <button class="btn-sm btn-primary" onclick="adminShowLessonForm(null)" id="admin-add-lesson-btn" style="display:none;">➕ Yangi Dars</button>
+                    </div>
+                    <div id="admin-lessons-list">
+                        <div style="color:var(--text-secondary);text-align:center;padding:30px;">Yuqoridan kurs tanlang</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ── COURSE FORM MODAL ── -->
+        <div class="modal-overlay" id="admin-course-modal">
+            <div class="modal-card" style="max-width:520px;max-height:90vh;overflow-y:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 id="admin-course-modal-title">➕ Yangi Kurs</h3>
+                    <button onclick="closeAdminModal('admin-course-modal')" style="background:none;border:none;color:var(--text-secondary);font-size:22px;cursor:pointer;">&times;</button>
+                </div>
+                <input type="hidden" id="acf-course-id">
+
+                <div style="display:grid;gap:12px;">
+                    <div>
+                        <label class="admin-label">Bo'lim (Kategoriya) *</label>
+                        <select id="acf-category" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                            <option value="Sarf">📖 Sarf bo'limi</option>
+                            <option value="Nahv">📜 Nahv bo'limi</option>
+                            <option value="Balog'at - Maoniy">✨ Balog'at: Maoniy</option>
+                            <option value="Balog'at - Bayon">💎 Balog'at: Bayon</option>
+                            <option value="Balog'at - Badiy">🎨 Balog'at: Badiy</option>
+                            <option value="She'riyat">🎵 She'riyat</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="admin-label">Kurs Raqami * (masalan: 1)</label>
+                        <input type="number" id="acf-number" min="1" placeholder="1" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                    </div>
+                    <div>
+                        <label class="admin-label">Kurs Sarlavhasi *</label>
+                        <input type="text" id="acf-title" placeholder="masalan: Ism va uning turlari" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                    </div>
+                    <div>
+                        <label class="admin-label">Tavsif</label>
+                        <textarea id="acf-desc" rows="3" placeholder="Kurs haqida qisqacha..." style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;resize:none;font-family:inherit;"></textarea>
+                    </div>
+                    <div>
+                        <label class="admin-label">Narxi (UZS) *</label>
+                        <input type="number" id="acf-price" placeholder="150000" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                    </div>
+                    <div>
+                        <label class="admin-label">Muqova rasmining URL manzili</label>
+                        <input type="url" id="acf-thumbnail" placeholder="https://..." style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                        <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">💡 Rasmni google.com dan topib "Rasmni nusxalash" orqali URL oling.</p>
+                    </div>
+                </div>
+                <button class="btn-sm btn-primary" onclick="adminSaveCourse()" style="width:100%;padding:13px;margin-top:18px;font-size:15px;">
+                    💾 Saqlash
+                </button>
+            </div>
+        </div>
+
+        <!-- ── LESSON FORM MODAL ── -->
+        <div class="modal-overlay" id="admin-lesson-modal">
+            <div class="modal-card" style="max-width:540px;max-height:92vh;overflow-y:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 id="admin-lesson-modal-title">🎬 Yangi Dars</h3>
+                    <button onclick="closeAdminModal('admin-lesson-modal')" style="background:none;border:none;color:var(--text-secondary);font-size:22px;cursor:pointer;">&times;</button>
+                </div>
+                <input type="hidden" id="alf-course-id">
+                <input type="hidden" id="alf-lesson-num">
+
+                <div style="display:grid;gap:12px;">
+                    <div>
+                        <label class="admin-label">Dars Raqami * (masalan: 1 yoki 2.5)</label>
+                        <input type="number" id="alf-number" min="1" step="0.5" placeholder="1" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                    </div>
+                    <div>
+                        <label class="admin-label">Dars Sarlavhasi *</label>
+                        <input type="text" id="alf-title" placeholder="masalan: Mubtado va xabar" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                    </div>
+                    <div>
+                        <label class="admin-label">Dars Turi</label>
+                        <select id="alf-type" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                            <option value="video">🎬 Video dars</option>
+                            <option value="pronunciation">🎙 Talaffuz mashqi</option>
+                            <option value="pdf">📄 PDF material</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="admin-label">🎬 Video URL manzili</label>
+                        <input type="url" id="alf-video" placeholder="https://youtube.com/watch?v=... yoki boshqa URL" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                        <div style="margin-top:8px;padding:10px;background:#0c1a10;border:1px solid #166534;border-radius:var(--radius-sm);font-size:12px;color:#86efac;">
+                            <b>📋 Video URL olish usullari:</b><br>
+                            • <b>YouTube:</b> Video sahifasida <b>Share → Copy link</b><br>
+                            • <b>Telegram:</b> Videoni botga yuborib, admin paneldan <b>🎬 Video dars</b> orqali yuklang, u Firebase ga saqlanadi va URL ga nusxalang<br>
+                            • <b>Google Drive:</b> Fayl → Share → "Anyone with link" → URL ni nusxalang
+                        </div>
+                    </div>
+                    <div>
+                        <label class="admin-label">🎙 Arabcha talaffuz matni (ixtiyoriy)</label>
+                        <input type="text" id="alf-phrase" placeholder="مَثَلًا: بِسْمِ اللَّهِ" dir="rtl" style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;font-family:'Amiri',serif;font-size:20px;text-align:right;">
+                    </div>
+                    <div>
+                        <label class="admin-label">Tarjima (ixtiyoriy)</label>
+                        <input type="text" id="alf-translation" placeholder="masalan: Alloh nomi bilan..." style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;">
+                    </div>
+                    <div>
+                        <label class="admin-label">Tavsif / Izoh</label>
+                        <textarea id="alf-desc" rows="3" placeholder="Bu darsda nima o'rganiladi..." style="width:100%;padding:10px;background:#0b0f19;border:1px solid var(--border-color);border-radius:var(--radius-sm);color:#fff;resize:none;font-family:inherit;"></textarea>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-card);border-radius:var(--radius-sm);">
+                        <input type="checkbox" id="alf-preview" style="width:18px;height:18px;cursor:pointer;">
+                        <label for="alf-preview" style="font-size:14px;cursor:pointer;">👁 Bepul preview (to'lovsiz ko'rish mumkin)</label>
+                    </div>
+                </div>
+                <button class="btn-sm btn-primary" onclick="adminSaveLesson()" style="width:100%;padding:13px;margin-top:18px;font-size:15px;">
+                    💾 Darsni Saqlash
+                </button>
+            </div>
+        </div>
+
+
         <!-- Toast Alert -->
         <div id="toast-msg" class="toast-msg"></div>
 

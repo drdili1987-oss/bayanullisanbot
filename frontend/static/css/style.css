@@ -636,7 +636,15 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 1;
 }
 
-/* Responsive adjustments */
+/* Admin Panel */
+.admin-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+
 @media (max-width: 640px) {
     .hero-banner { padding: 18px; margin: 12px 14px; }
     .courses-grid { padding: 0 14px; }

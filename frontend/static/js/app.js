@@ -629,6 +629,7 @@ function switchTab(tab) {
         switchView('profile-view');
     } else if (tab === 'admin') {
         switchView('admin-view');
+        adminSwitchTab('courses');
     }
 }
 
@@ -658,4 +659,218 @@ function showToast(msg) {
     el.textContent = msg;
     el.classList.add('show');
     setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ─── Admin Panel ─────────────────────────────────────────────────────
+let adminCoursesList = [];
+let adminSelectedCourseId = null;
+
+function adminSwitchTab(tab) {
+    const coursesTab = document.getElementById('admin-courses-tab');
+    const lessonsTab = document.getElementById('admin-lessons-tab');
+    const coursesBtn = document.getElementById('admin-tab-courses-btn');
+    const lessonsBtn = document.getElementById('admin-tab-lessons-btn');
+
+    if (tab === 'courses') {
+        coursesTab.style.display = 'block';
+        lessonsTab.style.display = 'none';
+        coursesBtn.className = 'btn-sm btn-primary';
+        lessonsBtn.style.cssText = 'flex:1;padding:10px;background:var(--bg-card);color:var(--text-secondary);';
+        adminLoadCourses();
+    } else {
+        coursesTab.style.display = 'none';
+        lessonsTab.style.display = 'block';
+        lessonsBtn.className = 'btn-sm btn-primary';
+        lessonsBtn.style.cssText = 'flex:1;padding:10px;';
+        coursesBtn.style.cssText = 'flex:1;padding:10px;background:var(--bg-card);color:var(--text-secondary);';
+        adminPopulateCourseSelect();
+    }
+}
+
+async function adminLoadCourses() {
+    const listEl = document.getElementById('admin-courses-list');
+    listEl.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:30px;">⏳ Yuklanmoqda...</div>';
+
+    const res = await fetch('/api/webapp/courses');
+    const data = await res.json();
+    adminCoursesList = data.courses || [];
+
+    if (!adminCoursesList.length) {
+        listEl.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:30px;">Hozircha kurslar yo\'q. ➕ Yangi Kurs tugmasini bosing.</div>';
+        return;
+    }
+
+    listEl.innerHTML = adminCoursesList.map(c => `
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div>
+                <div style="font-weight:700;font-size:15px;">${c.courseNumber}-kurs: ${c.title}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${c.category} · ${formatPrice(c.price)} UZS</div>
+            </div>
+            <button class="btn-sm btn-primary" onclick="adminShowCourseForm('${c.id}')">✏️ Tahrir</button>
+        </div>
+    `).join('');
+}
+
+function adminPopulateCourseSelect() {
+    const sel = document.getElementById('admin-lesson-course-select');
+    sel.innerHTML = '<option value="">— Kurs tanlang —</option>';
+    (adminCoursesList || []).forEach(c => {
+        sel.innerHTML += `<option value="${c.id}">${c.courseNumber}-kurs: ${c.title} (${c.category})</option>`;
+    });
+    if (!adminCoursesList.length) {
+        // Load if not yet loaded
+        fetch('/api/webapp/courses').then(r => r.json()).then(data => {
+            adminCoursesList = data.courses || [];
+            adminPopulateCourseSelect();
+        });
+    }
+}
+
+async function adminLoadLessons(courseId) {
+    adminSelectedCourseId = courseId;
+    const listEl = document.getElementById('admin-lessons-list');
+    const addBtn = document.getElementById('admin-add-lesson-btn');
+
+    if (!courseId) {
+        listEl.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:30px;">Yuqoridan kurs tanlang</div>';
+        addBtn.style.display = 'none';
+        return;
+    }
+
+    addBtn.style.display = 'inline-block';
+    listEl.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:20px;">⏳ Yuklanmoqda...</div>';
+
+    const res = await fetch(`/api/webapp/courses/${courseId}`);
+    const data = await res.json();
+    const lessons = data.course?.lessons || [];
+
+    if (!lessons.length) {
+        listEl.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:30px;">Bu kursda hozircha darslar yo\'q. ➕ Yangi Dars tugmasini bosing.</div>';
+        return;
+    }
+
+    listEl.innerHTML = lessons.map(l => `
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-weight:700;font-size:15px;">${l.lessonNumber}-dars: ${l.title}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                        ${l.type === 'video' ? '🎬 Video' : l.type === 'pronunciation' ? '🎙 Talaffuz' : '📄 PDF'}
+                        ${l.videoUrl ? ' · <span style="color:var(--primary);">✅ Video mavjud</span>' : ' · <span style="color:var(--danger);">⚠️ Video yo\'q</span>'}
+                        ${l.isLocked ? '' : ' · 👁 Preview'}
+                    </div>
+                </div>
+                <button class="btn-sm btn-primary" onclick="adminShowLessonForm('${l.lessonNumber}', ${JSON.stringify(l).replace(/'/g, "\\'")})">✏️</button>
+            </div>
+            ${l.videoUrl ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;word-break:break-all;">🔗 ${l.videoUrl.substring(0,60)}...</div>` : ''}
+        </div>
+    `).join('');
+}
+
+// ── Course Form ──
+function adminShowCourseForm(courseId) {
+    const course = courseId ? adminCoursesList.find(c => c.id === courseId) : null;
+    document.getElementById('admin-course-modal-title').textContent = course ? '✏️ Kursni Tahrirlash' : '➕ Yangi Kurs';
+    document.getElementById('acf-course-id').value = courseId || '';
+    document.getElementById('acf-category').value = course?.category || 'Sarf';
+    document.getElementById('acf-number').value = course?.courseNumber || '';
+    document.getElementById('acf-title').value = course?.title || '';
+    document.getElementById('acf-desc').value = course?.description || '';
+    document.getElementById('acf-price').value = course?.price || 150000;
+    document.getElementById('acf-thumbnail').value = course?.thumbnail || '';
+    document.getElementById('admin-course-modal').classList.add('active');
+}
+
+async function adminSaveCourse() {
+    if (!currentUser?.isAdmin) { showToast("❌ Siz admin emassiz"); return; }
+    const courseId = document.getElementById('acf-course-id').value || null;
+    const title = document.getElementById('acf-title').value.trim();
+    const courseNumber = document.getElementById('acf-number').value;
+    if (!title || !courseNumber) { showToast("⚠️ Sarlavha va Raqam majburiy"); return; }
+
+    const payload = {
+        userId: currentUser.id,
+        courseId: courseId || undefined,
+        category: document.getElementById('acf-category').value,
+        courseNumber: parseInt(courseNumber),
+        title,
+        description: document.getElementById('acf-desc').value,
+        price: parseInt(document.getElementById('acf-price').value) || 150000,
+        thumbnail: document.getElementById('acf-thumbnail').value,
+        isPublished: true,
+    };
+
+    const res = await fetch('/api/webapp/admin/save_course', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        showToast('✅ Kurs saqlandi!');
+        closeAdminModal('admin-course-modal');
+        await adminLoadCourses();
+    } else {
+        showToast('❌ ' + (data.error || 'Xatolik'));
+    }
+}
+
+// ── Lesson Form ──
+function adminShowLessonForm(lessonNum, lessonData) {
+    const courseId = adminSelectedCourseId;
+    if (!courseId) { showToast("Avval kursni tanlang"); adminSwitchTab('lessons'); return; }
+
+    document.getElementById('admin-lesson-modal-title').textContent = lessonNum ? '✏️ Darsni Tahrirlash' : '🎬 Yangi Dars';
+    document.getElementById('alf-course-id').value = courseId;
+    document.getElementById('alf-lesson-num').value = lessonNum || '';
+    document.getElementById('alf-number').value = lessonNum || '';
+    document.getElementById('alf-title').value = lessonData?.title || '';
+    document.getElementById('alf-type').value = lessonData?.type || 'video';
+    document.getElementById('alf-video').value = lessonData?.videoUrl || '';
+    document.getElementById('alf-phrase').value = lessonData?.phrase || '';
+    document.getElementById('alf-translation').value = lessonData?.translation || '';
+    document.getElementById('alf-desc').value = lessonData?.description || '';
+    document.getElementById('alf-preview').checked = !lessonData?.isLocked;
+    document.getElementById('admin-lesson-modal').classList.add('active');
+}
+
+async function adminSaveLesson() {
+    if (!currentUser?.isAdmin) { showToast("❌ Siz admin emassiz"); return; }
+    const courseId = document.getElementById('alf-course-id').value;
+    const lessonNumber = document.getElementById('alf-number').value;
+    const title = document.getElementById('alf-title').value.trim();
+    if (!courseId || !lessonNumber || !title) { showToast("⚠️ Kurs, Dars Raqami va Sarlavha majburiy"); return; }
+
+    const payload = {
+        userId: currentUser.id,
+        courseId,
+        lessonNumber: parseFloat(lessonNumber),
+        title,
+        type: document.getElementById('alf-type').value,
+        videoUrl: document.getElementById('alf-video').value.trim(),
+        phrase: document.getElementById('alf-phrase').value.trim(),
+        translation: document.getElementById('alf-translation').value.trim(),
+        description: document.getElementById('alf-desc').value.trim(),
+        isPreview: document.getElementById('alf-preview').checked,
+    };
+
+    const res = await fetch('/api/webapp/admin/save_lesson', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        showToast('✅ Dars saqlandi!');
+        closeAdminModal('admin-lesson-modal');
+        await adminLoadLessons(courseId);
+    } else {
+        showToast('❌ ' + (data.error || 'Xatolik'));
+    }
+}
+
+function closeAdminModal(id) {
+    document.getElementById(id).classList.remove('active');
 }
